@@ -248,11 +248,38 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   placeholder="Sync key (folder ID, min 3 chars)"
                   className="w-full h-9 px-3 text-xs bg-muted rounded-lg outline-none focus:ring-1 focus:ring-accent"
                 />
+                <input
+                  type="text"
+                  value={cloudSettings.displayName}
+                  onChange={(e) => updateCloud({ displayName: e.target.value })}
+                  placeholder="Display name (untuk kolaborasi)"
+                  className="w-full h-9 px-3 text-xs bg-muted rounded-lg outline-none focus:ring-1 focus:ring-accent"
+                />
               </div>
+
+              <label className="flex items-center justify-between">
+                <span className="text-xs">Upload media ke cloud (max 50MB/file)</span>
+                <button
+                  onClick={() =>
+                    updateCloud({ uploadMedia: !cloudSettings.uploadMedia })
+                  }
+                  className={cn(
+                    "w-9 h-5 rounded-full transition-colors relative",
+                    cloudSettings.uploadMedia ? "bg-accent" : "bg-muted"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
+                      cloudSettings.uploadMedia ? "translate-x-4" : "translate-x-0.5"
+                    )}
+                  />
+                </button>
+              </label>
 
               <p className="text-[10px] text-muted-foreground">
                 Bucket: <code className="px-1 py-0.5 rounded bg-muted">vibecoding-projects</code>.
-                Sync key = folder unik Anda. Media tetap lokal (IndexedDB).
+                Sync key yang sama = kolaborasi tim. Realtime presence via Supabase Broadcast.
               </p>
 
               <div className="flex items-center gap-2">

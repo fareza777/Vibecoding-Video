@@ -80,6 +80,7 @@ const projectFileSchema = z.object({
       resolution: z.enum(["720p", "1080p", "4k"]),
       fps: z.union([z.literal(24), z.literal(30), z.literal(60)]),
       bakeEffects: z.boolean().optional(),
+      mixAudioTracks: z.boolean().optional(),
     })
     .optional(),
 });
@@ -188,11 +189,10 @@ export function downloadProjectFile(
   URL.revokeObjectURL(url);
 }
 
-export async function parseProjectFile(
-  file: File
-): Promise<{ project: EditorProject; exportSettings?: ExportSettings }> {
-  const text = await file.text();
-  const parsed = projectFileSchema.parse(JSON.parse(text));
+export function parseProjectJson(
+  json: string
+): { project: EditorProject; exportSettings?: ExportSettings } {
+  const parsed = projectFileSchema.parse(JSON.parse(json));
   const project: EditorProject = {
     ...parsed.project,
     assets: parsed.project.assets.map((a) => ({
@@ -203,6 +203,16 @@ export async function parseProjectFile(
     tracks: parsed.project.tracks as TimelineTrack[],
   };
 
+  return {
+    project,
+    exportSettings: parsed.exportSettings,
+  };
+}
+
+export async function parseProjectFile(
+  file: File
+): Promise<{ project: EditorProject; exportSettings?: ExportSettings }> {
+  const { project, exportSettings } = parseProjectJson(await file.text());
   const { project: hydrated, missing } = await rehydrateProjectAssets(project);
 
   if (missing.length > 0 && missing.length === project.assets.length) {
@@ -213,7 +223,7 @@ export async function parseProjectFile(
 
   return {
     project: hydrated,
-    exportSettings: parsed.exportSettings,
+    exportSettings,
   };
 }
 

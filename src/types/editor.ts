@@ -106,6 +106,7 @@ export interface ExportSettings {
   resolution: "720p" | "1080p" | "4k";
   fps: 24 | 30 | 60;
   bakeEffects?: boolean;
+  mixAudioTracks?: boolean;
 }
 
 export interface CloudSettings {
@@ -113,6 +114,8 @@ export interface CloudSettings {
   supabaseUrl: string;
   supabaseAnonKey: string;
   syncKey: string;
+  displayName: string;
+  uploadMedia: boolean;
 }
 
 export type AiModel = "MiniMax-M3" | "MiniMax-M2.5" | "MiniMax-M2.1";

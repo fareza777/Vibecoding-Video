@@ -1,5 +1,6 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import { getAudioClipsForMix, mixAudioIntoVideo } from "@/lib/ffmpeg-audio-mix";
 import {
   buildAudioFilter,
   buildClipVideoFilter,
@@ -135,6 +136,27 @@ function buildSegmentArgs(
   return [...args, ...encodeArgs, segmentName];
 }
 
+function collectAssetsToLoad(
+  project: EditorProject,
+  mixAudio: boolean
+): MediaAsset[] {
+  const assetMap = new Map(project.assets.map((a) => [a.id, a]));
+  const needed = new Set<string>();
+
+  for (const clip of project.clips) {
+    if (clip.trackId.startsWith("track-video")) {
+      needed.add(clip.assetId);
+    }
+    if (mixAudio && clip.trackId.startsWith("track-audio")) {
+      needed.add(clip.assetId);
+    }
+  }
+
+  return [...needed]
+    .map((id) => assetMap.get(id))
+    .filter((a): a is MediaAsset => Boolean(a));
+}
+
 export async function exportTimeline(
   project: EditorProject,
   settings: ExportSettings,
@@ -147,6 +169,8 @@ export async function exportTimeline(
   }
 
   const ffmpeg = await loadFFmpeg(onProgress);
+  const mixAudio = settings.mixAudioTracks !== false;
+  const audioClips = mixAudio ? getAudioClipsForMix(project) : [];
 
   onProgress?.({
     phase: "preparing",
@@ -156,20 +180,20 @@ export async function exportTimeline(
 
   const assetMap = new Map(project.assets.map((a) => [a.id, a]));
   const assetFileMap = new Map<string, string>();
+  const mergedName = "merged_video.mp4";
   const outputName = `output.${settings.format === "mov" ? "mov" : settings.format}`;
   const baking = settings.bakeEffects !== false;
 
+  const assetsToLoad = collectAssetsToLoad(project, mixAudio);
   let fileIndex = 0;
-  for (const clip of videoClips) {
-    const asset = assetMap.get(clip.assetId);
-    if (!asset) continue;
-    if (asset.type !== "video" && asset.type !== "image") continue;
-    if (assetFileMap.has(asset.id)) continue;
 
-    const ext =
-      asset.type === "image"
-        ? (asset.name.split(".").pop() ?? "png")
-        : (asset.name.split(".").pop() ?? "mp4");
+  for (const asset of assetsToLoad) {
+    if (assetFileMap.has(asset.id)) continue;
+    if (asset.type !== "video" && asset.type !== "audio" && asset.type !== "image") {
+      continue;
+    }
+
+    const ext = asset.name.split(".").pop() ?? (asset.type === "audio" ? "mp3" : "mp4");
     const filename = `input_${fileIndex}.${ext}`;
     await writeAssetFile(asset, ffmpeg, filename);
     assetFileMap.set(asset.id, filename);
@@ -177,13 +201,9 @@ export async function exportTimeline(
 
     onProgress?.({
       phase: "preparing",
-      progress: 10 + Math.round((fileIndex / videoClips.length) * 20),
+      progress: 10 + Math.round((fileIndex / assetsToLoad.length) * 20),
       message: `Loaded ${asset.name}`,
     });
-  }
-
-  if (assetFileMap.size === 0) {
-    throw new Error("Tidak ada file video/gambar valid untuk export.");
   }
 
   const segmentFiles: string[] = [];
@@ -201,7 +221,7 @@ export async function exportTimeline(
 
     onProgress?.({
       phase: "encoding",
-      progress: 30 + Math.round((i / videoClips.length) * 40),
+      progress: 30 + Math.round((i / videoClips.length) * 30),
       message: baking
         ? `Rendering effects clip ${i + 1}/${videoClips.length}...`
         : `Trimming clip ${i + 1}/${videoClips.length}...`,
@@ -215,14 +235,14 @@ export async function exportTimeline(
   }
 
   if (segmentFiles.length === 1) {
-    await ffmpeg.exec(["-i", segmentFiles[0], "-c", "copy", outputName]);
+    await ffmpeg.exec(["-i", segmentFiles[0], "-c", "copy", mergedName]);
   } else {
     const listContent = segmentFiles.map((f) => `file '${f}'`).join("\n");
     await ffmpeg.writeFile("concat.txt", listContent);
 
     onProgress?.({
       phase: "encoding",
-      progress: 75,
+      progress: 62,
       message: `Concatenating ${segmentFiles.length} segments...`,
     });
 
@@ -235,8 +255,42 @@ export async function exportTimeline(
       "concat.txt",
       "-c",
       "copy",
-      outputName,
+      mergedName,
     ]);
+  }
+
+  let finalFile = mergedName;
+
+  if (audioClips.length > 0) {
+    onProgress?.({
+      phase: "encoding",
+      progress: 72,
+      message: `Mixing ${audioClips.length} audio track(s)...`,
+    });
+
+    const writeAsset = async (asset: MediaAsset, filename: string) => {
+      await writeAssetFile(asset, ffmpeg, filename);
+    };
+
+    const mixed = await mixAudioIntoVideo(
+      ffmpeg,
+      project,
+      settings,
+      mergedName,
+      outputName,
+      assetFileMap,
+      writeAsset
+    );
+
+    if (mixed) {
+      finalFile = outputName;
+    } else {
+      await ffmpeg.exec(["-i", mergedName, "-c", "copy", outputName]);
+      finalFile = outputName;
+    }
+  } else {
+    await ffmpeg.exec(["-i", mergedName, "-c", "copy", outputName]);
+    finalFile = outputName;
   }
 
   onProgress?.({
@@ -245,7 +299,7 @@ export async function exportTimeline(
     message: "Reading output...",
   });
 
-  const data = await ffmpeg.readFile(outputName);
+  const data = await ffmpeg.readFile(finalFile);
   const bytes =
     data instanceof Uint8Array
       ? new Uint8Array(data)
@@ -261,7 +315,11 @@ export async function exportTimeline(
   onProgress?.({
     phase: "done",
     progress: 100,
-    message: baking ? "Export dengan effects selesai!" : "Export selesai!",
+    message: baking
+      ? audioClips.length > 0
+        ? "Export dengan effects + audio mix selesai!"
+        : "Export dengan effects selesai!"
+      : "Export selesai!",
   });
 
   return new Blob([bytes.buffer], { type: mime });

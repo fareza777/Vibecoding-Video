@@ -11,9 +11,6 @@ import {
   Sparkles,
   Undo2,
 } from "lucide-react";
-import { isCloudConfigured, loadCloudSettings } from "@/lib/cloud-settings";
-import { uploadProjectToCloud } from "@/lib/cloud-sync";
-import { persistProjectMedia } from "@/lib/project-persistence";
 import { Button } from "@/components/ui/button";
 import { useEditorStore } from "@/store/editor-store";
 
@@ -21,31 +18,23 @@ interface HeaderProps {
   onOpenSettings?: () => void;
   onOpenExport?: () => void;
   onOpenProject?: () => void;
+  onCloudSync?: () => void | Promise<void>;
 }
 
-export function Header({ onOpenSettings, onOpenExport, onOpenProject }: HeaderProps) {
+export function Header({
+  onOpenSettings,
+  onOpenExport,
+  onOpenProject,
+  onCloudSync,
+}: HeaderProps) {
   const projectName = useEditorStore((s) => s.project.name);
   const setProjectName = useEditorStore((s) => s.setProjectName);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const historyPast = useEditorStore((s) => s.historyPast);
   const historyFuture = useEditorStore((s) => s.historyFuture);
-  const project = useEditorStore((s) => s.project);
-  const exportSettings = useEditorStore((s) => s.exportSettings);
   const lastSavedAt = useEditorStore((s) => s.lastSavedAt);
   const saveProject = useEditorStore((s) => s.saveProject);
-  const setLastSaved = useEditorStore((s) => s.setLastSaved);
-
-  const handleCloudSync = async () => {
-    const settings = loadCloudSettings();
-    if (!isCloudConfigured(settings)) {
-      onOpenSettings?.();
-      return;
-    }
-    await persistProjectMedia(project.id, project.assets);
-    await uploadProjectToCloud(settings, project, exportSettings);
-    setLastSaved(Date.now());
-  };
 
   return (
     <header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4 shrink-0">
@@ -117,7 +106,7 @@ export function Header({ onOpenSettings, onOpenExport, onOpenProject }: HeaderPr
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleCloudSync}
+          onClick={onCloudSync}
           title="Upload to Cloud"
         >
           <CloudUpload className="h-3.5 w-3.5" />

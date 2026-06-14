@@ -42,16 +42,21 @@ AI-powered video editor dengan fokus **Vibecoding** — edit video menggunakan b
 - **Multi-clip export** — trim per segment lalu concat dengan resolusi 720p/1080p/4K
 - **Shortcuts** — Ctrl+S save, Ctrl+O open
 
-### Fase 6 ✅ (Saat ini)
+### Fase 6 ✅
 - **Effects baked-in export** — fade, blur, brightness, zoom, speed, teks → FFmpeg filters
 - **Toggle bake effects** — aktif/nonaktif di dialog Export
 - **Cloud sync (Supabase)** — upload/download `.vibe.json` ke Supabase Storage
 - **Sync key** — folder unik per user di bucket `vibecoding-projects`
 
-### Fase 7 (Berikutnya)
-- Audio track mixing di export
-- Media upload ke cloud storage
-- Collaborative editing
+### Fase 7 ✅ (Saat ini)
+- **Audio track mixing** — mix audio track ke export final dengan volume & delay
+- **Cloud media upload** — media hingga 50MB/file ke Supabase Storage
+- **Collaborative editing** — presence online, broadcast update, pull remote changes
+
+### Fase 8 (Berikutnya)
+- Real-time timeline sync (operational transform)
+- Transition effects baked-in
+- Mobile-responsive editor
 
 ## Vibecoding Commands
 
@@ -107,7 +112,9 @@ Atau masukkan API key di **Settings** (disimpan lokal di browser).
    - Supabase URL
    - Anon key
    - Sync key (folder ID unik Anda, min 3 karakter)
-4. Upload via tombol **Sync** di header atau dialog **Open**
+4. Set **Display name** untuk kolaborasi tim
+5. Upload via tombol **Sync** di header atau dialog **Open**
+6. Tim dengan sync key sama melihat presence & **Pull updates**
 
 ## Tech Stack
 

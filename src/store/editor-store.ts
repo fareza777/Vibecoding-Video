@@ -130,6 +130,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     resolution: "1080p",
     fps: 30,
     bakeEffects: true,
+    mixAudioTracks: true,
   },
   sidebarWidth: 280,
   vibecodingWidth: 360,

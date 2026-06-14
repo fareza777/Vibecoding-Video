@@ -139,6 +139,36 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
 
             <label className="flex items-center justify-between py-1">
               <div>
+                <span className="text-xs">Mix audio tracks</span>
+                <p className="text-[10px] text-muted-foreground">
+                  Gabungkan audio track ke export final
+                </p>
+              </div>
+              <button
+                onClick={() =>
+                  update({
+                    mixAudioTracks: !(exportSettings.mixAudioTracks !== false),
+                  })
+                }
+                className={cn(
+                  "w-9 h-5 rounded-full transition-colors relative shrink-0",
+                  exportSettings.mixAudioTracks !== false ? "bg-accent" : "bg-muted"
+                )}
+                disabled={isExporting}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
+                    exportSettings.mixAudioTracks !== false
+                      ? "translate-x-4"
+                      : "translate-x-0.5"
+                  )}
+                />
+              </button>
+            </label>
+
+            <label className="flex items-center justify-between py-1">
+              <div>
                 <span className="text-xs">Bake effects ke video</span>
                 <p className="text-[10px] text-muted-foreground">
                   Fade, blur, teks, zoom, speed → FFmpeg filters

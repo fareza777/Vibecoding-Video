@@ -7,6 +7,8 @@ export const DEFAULT_CLOUD_SETTINGS: CloudSettings = {
   supabaseUrl: "",
   supabaseAnonKey: "",
   syncKey: "",
+  displayName: "",
+  uploadMedia: true,
 };
 
 export function loadCloudSettings(): CloudSettings {

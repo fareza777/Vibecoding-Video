@@ -39,12 +39,14 @@ interface OpenProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenSettings?: () => void;
+  onCloudSynced?: () => void | Promise<void>;
 }
 
 export function OpenProjectDialog({
   open,
   onOpenChange,
   onOpenSettings,
+  onCloudSynced,
 }: OpenProjectDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const loadProject = useEditorStore((s) => s.loadProject);
@@ -131,8 +133,11 @@ export function OpenProjectDialog({
       setError(null);
       try {
         const settings = loadCloudSettings();
-        const saved = await downloadCloudProject(settings, id);
+        const saved = await downloadCloudProject(settings, id, true);
         loadProject(saved.project, saved.exportSettings);
+        if (saved.cloudLoaded && saved.cloudLoaded > 0) {
+          setSuccess(`Loaded ${saved.cloudLoaded} media file(s) from cloud.`);
+        }
         onOpenChange(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Gagal memuat dari cloud.");
@@ -155,9 +160,18 @@ export function OpenProjectDialog({
     setSuccess(null);
     try {
       await persistProjectMedia(project.id, project.assets);
-      await uploadProjectToCloud(settings, project, exportSettings);
+      const result = await uploadProjectToCloud(
+        settings,
+        project,
+        exportSettings
+      );
       setLastSaved(Date.now());
-      setSuccess(`"${project.name}" di-upload ke cloud.`);
+      await onCloudSynced?.();
+      const mediaNote =
+        result.mediaUploaded > 0
+          ? ` + ${result.mediaUploaded} media file(s)`
+          : "";
+      setSuccess(`"${project.name}" di-upload ke cloud${mediaNote}.`);
       await refreshCloud();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload cloud gagal.");
@@ -345,8 +359,8 @@ export function OpenProjectDialog({
             )}
 
             <p className="text-[10px] text-muted-foreground/70">
-              Media disimpan di IndexedDB browser ini. Cloud sync hanya menyimpan timeline
-              (.vibe.json). Import ulang media jika dibuka di browser lain.
+              Cloud sync menyimpan timeline + media (max 50MB/file). Gunakan sync key
+              yang sama dengan tim untuk kolaborasi.
             </p>
           </div>
         </Dialog.Content>
