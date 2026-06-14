@@ -13,7 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { useEditorStore } from "@/store/editor-store";
 
-export function Header() {
+interface HeaderProps {
+  onOpenSettings?: () => void;
+}
+
+export function Header({ onOpenSettings }: HeaderProps) {
   const projectName = useEditorStore((s) => s.project.name);
   const setProjectName = useEditorStore((s) => s.setProjectName);
   const undo = useEditorStore((s) => s.undo);
@@ -87,7 +91,12 @@ export function Header() {
           <Download className="h-3.5 w-3.5" />
           Export
         </Button>
-        <Button variant="ghost" size="icon-sm" title="Settings">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Settings"
+          onClick={onOpenSettings}
+        >
           <Settings className="h-3.5 w-3.5" />
         </Button>
       </div>

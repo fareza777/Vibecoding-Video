@@ -106,3 +106,45 @@ export interface ExportSettings {
   resolution: "720p" | "1080p" | "4k";
   fps: 24 | 30 | 60;
 }
+
+export type AiModel = "claude-sonnet-4-6" | "claude-haiku-4-5-20251001" | "claude-opus-4-6";
+
+export interface AiSettings {
+  enabled: boolean;
+  apiKey: string;
+  model: AiModel;
+  useStreaming: boolean;
+}
+
+export interface VibecodingContext {
+  projectName: string;
+  duration: number;
+  fps: number;
+  resolution: { width: number; height: number };
+  playhead: number;
+  selectedClipId: string | null;
+  tracks: Array<{ id: string; name: string; type: TrackType }>;
+  clips: Array<{
+    id: string;
+    label: string;
+    trackId: string;
+    assetId: string;
+    startTime: number;
+    duration: number;
+    trimStart: number;
+    trimEnd: number;
+    volume: number;
+    effects: string[];
+  }>;
+  assets: Array<{ id: string; name: string; type: MediaType; duration: number }>;
+}
+
+export interface VibecodingApiResponse {
+  message: string;
+  actions: Array<{
+    type: string;
+    description: string;
+    params: Record<string, unknown>;
+  }>;
+  source: "claude" | "local";
+}

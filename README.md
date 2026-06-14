@@ -15,7 +15,7 @@ AI-powered video editor dengan fokus **Vibecoding** — edit video menggunakan b
 - **Multi-track timeline** — video, audio, text, effects tracks
 - **Vibecoding panel** — edit dengan perintah bahasa natural (ID/EN)
 
-### Fase 2 ✅ (Saat ini)
+### Fase 2 ✅
 - **Drag & resize clip** — geser clip, resize kiri/kanan, pindah antar track
 - **Snap-to-grid** — toggle snap (tombol Snap / tombol N)
 - **Waveform visualization** — waveform otomatis untuk audio & video
@@ -23,10 +23,12 @@ AI-powered video editor dengan fokus **Vibecoding** — edit video menggunakan b
 - **Undo/Redo** — riwayat editing hingga 50 langkah
 - **Split clip** — belah clip di playhead (S)
 
-### Fase 3 (Berikutnya)
-- Integrasi Claude API untuk editing AI canggih
-- Transcript-based editing
-- Scene detection otomatis
+### Fase 3 ✅ (Saat ini)
+- **Claude API integration** — `/api/vibecoding` dengan Sonnet/Haiku/Opus
+- **Context-aware editing** — AI menerima state timeline lengkap
+- **Settings panel** — API key, model selection, enable/disable AI
+- **Structured actions** — JSON actions dari Claude → diterapkan ke timeline
+- **Fallback lokal** — parser regex jika API tidak tersedia
 
 ### Fase 4 (Berikutnya)
 - FFmpeg.wasm untuk processing di browser
@@ -68,6 +70,17 @@ npm run typecheck
 ```
 
 Buka [http://localhost:3000](http://localhost:3000)
+
+### AI Setup (Vibecoding)
+
+```bash
+# Copy dan isi API key
+cp .env.example .env.local
+```
+
+Atau masukkan API key di **Settings** (disimpan lokal di browser).
+
+Dapatkan key di [console.anthropic.com](https://console.anthropic.com/)
 
 ## Tech Stack
 

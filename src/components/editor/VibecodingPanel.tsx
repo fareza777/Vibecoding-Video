@@ -1,83 +1,141 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
+  Brain,
   Loader2,
   Send,
+  Settings,
   Sparkles,
   Wand2,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { loadAiSettings } from "@/lib/ai-settings";
+import { buildVibecodingContext } from "@/lib/vibecoding-context";
+import { applyVibeActions } from "@/lib/vibecoding-engine";
+import { requestVibecoding } from "@/lib/vibecoding-client";
 import { cn } from "@/lib/utils";
-import { applyVibeActions, parseVibecodingCommand } from "@/lib/vibecoding-engine";
 import { useEditorStore } from "@/store/editor-store";
+import type { AiSettings } from "@/types/editor";
 
 const QUICK_PROMPTS = [
-  "Potong 0:30 sampai 1:15",
-  "Tambahkan fade in",
-  "Percepat 1.5x",
-  'Tambahkan teks "Subscribe!"',
-  "Tambahkan fade out",
-  "Export video",
+  "Buat intro 5 detik dengan fade in",
+  "Hapus bagian yang membosankan di tengah",
+  'Tambahkan teks "Subscribe!" di detik ke-3',
+  "Normalisasi volume semua clip",
+  "Tambahkan cross dissolve antar clip",
+  "Siapkan untuk export YouTube 1080p",
 ];
 
-export function VibecodingPanel() {
+interface VibecodingPanelProps {
+  onOpenSettings?: () => void;
+}
+
+export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
   const [input, setInput] = useState("");
+  const [aiSettings, setAiSettings] = useState<AiSettings>(loadAiSettings());
+  const [aiConnected, setAiConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const messages = useEditorStore((s) => s.vibecodingMessages);
   const isProcessing = useEditorStore((s) => s.isVibecodingProcessing);
+  const project = useEditorStore((s) => s.project);
   const addVibeMessage = useEditorStore((s) => s.addVibeMessage);
   const setVibecodingProcessing = useEditorStore((s) => s.setVibecodingProcessing);
   const updateClip = useEditorStore((s) => s.updateClip);
   const addClip = useEditorStore((s) => s.addClip);
+  const removeClip = useEditorStore((s) => s.removeClip);
+  const setPlayhead = useEditorStore((s) => s.setPlayhead);
+  const setSelectedClip = useEditorStore((s) => s.setSelectedClip);
+  const splitClipAtTime = useEditorStore((s) => s.splitClipAtTime);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
   const selectedClipId = useEditorStore((s) => s.selectedClipId);
-  const clips = useEditorStore((s) => s.project.clips);
-  const playhead = useEditorStore((s) => s.project.playhead);
+
+  useEffect(() => {
+    setAiSettings(loadAiSettings());
+    fetch("/api/vibecoding/status")
+      .then((r) => r.json())
+      .then((d) => setAiConnected(d.hasServerKey || aiSettings.apiKey.length > 10))
+      .catch(() => setAiConnected(aiSettings.apiKey.length > 10));
+  }, [aiSettings.apiKey]);
 
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || isProcessing) return;
 
+      const settings = loadAiSettings();
+      setAiSettings(settings);
+
       addVibeMessage({ role: "user", content: text.trim() });
       setInput("");
       setVibecodingProcessing(true);
 
-      await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
+      const context = buildVibecodingContext(project, selectedClipId);
+      const history = messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .slice(-6)
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content.replace(/\*([^*]+)\*/g, "$1"),
+        }));
 
-      const parsed = parseVibecodingCommand(text);
-      const appliedActions = applyVibeActions(parsed.actions, {
-        updateClip,
-        selectedClipId,
-        clips,
-        addClip,
-        playhead,
-      });
+      try {
+        const result = await requestVibecoding({
+          message: text,
+          context,
+          settings,
+          history,
+        });
 
-      addVibeMessage({
-        role: "assistant",
-        content: parsed.response,
-        actions: appliedActions,
-        status: appliedActions.some((a) => a.applied) ? "applied" : "pending",
-      });
+        const appliedActions = applyVibeActions(result.actions, {
+          updateClip,
+          removeClip,
+          addClip,
+          setPlayhead,
+          setSelectedClip,
+          splitClipAtTime,
+          pushHistory,
+          selectedClipId,
+          clips: project.clips,
+          playhead: project.playhead,
+        });
+
+        addVibeMessage({
+          role: "assistant",
+          content: result.message,
+          actions: appliedActions,
+          status: appliedActions.some((a) => a.applied) ? "applied" : "pending",
+        });
+      } catch (err) {
+        addVibeMessage({
+          role: "assistant",
+          content: `Gagal memproses: ${err instanceof Error ? err.message : "Unknown error"}`,
+          status: "failed",
+        });
+      }
 
       setVibecodingProcessing(false);
-
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
     },
     [
       isProcessing,
+      project,
+      selectedClipId,
+      messages,
       addVibeMessage,
       setVibecodingProcessing,
       updateClip,
-      selectedClipId,
-      clips,
+      removeClip,
       addClip,
-      playhead,
+      setPlayhead,
+      setSelectedClip,
+      splitClipAtTime,
+      pushHistory,
     ]
   );
 
@@ -85,6 +143,8 @@ export function VibecodingPanel() {
     e.preventDefault();
     sendMessage(input);
   };
+
+  const modeLabel = aiSettings.enabled && aiConnected ? "Claude AI" : "Local";
 
   return (
     <aside className="flex flex-col border-l border-border bg-surface w-[360px] shrink-0">
@@ -98,10 +158,26 @@ export function VibecodingPanel() {
             Edit dengan bahasa natural
           </p>
         </div>
-        <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/10 text-[10px] text-accent-glow font-medium">
-          <Zap className="h-3 w-3" />
-          AI Ready
+        <div
+          className={cn(
+            "ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
+            aiSettings.enabled && aiConnected
+              ? "bg-accent/10 text-accent-glow"
+              : "bg-muted text-muted-foreground"
+          )}
+        >
+          {aiSettings.enabled && aiConnected ? (
+            <Brain className="h-3 w-3" />
+          ) : (
+            <Zap className="h-3 w-3" />
+          )}
+          {modeLabel}
         </div>
+        {onOpenSettings && (
+          <Button variant="ghost" size="icon-sm" onClick={onOpenSettings} title="Settings">
+            <Settings className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
@@ -167,7 +243,9 @@ export function VibecodingPanel() {
                 <Loader2 className="h-3.5 w-3.5 text-accent-glow animate-spin" />
               </div>
               <div className="bg-muted/60 rounded-xl px-3 py-2 text-xs text-muted-foreground">
-                Menganalisis perintah editing...
+                {aiSettings.enabled && aiConnected
+                  ? "Claude menganalisis timeline & perintah..."
+                  : "Menganalisis perintah editing..."}
               </div>
             </div>
           )}
@@ -192,7 +270,11 @@ export function VibecodingPanel() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Jelaskan edit yang Anda inginkan..."
+            placeholder={
+              aiConnected
+                ? "Jelaskan edit kompleks — AI paham konteks timeline..."
+                : "Jelaskan edit yang Anda inginkan..."
+            }
             disabled={isProcessing}
             className="flex-1 h-9 px-3 text-xs bg-muted rounded-lg outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
           />
@@ -210,7 +292,7 @@ export function VibecodingPanel() {
 }
 
 function MessageContent({ content }: { content: string }) {
-  const parts = content.split(/(\*[^*]+\*)/g);
+  const parts = content.split(/(\*[^*]+\*|`[^`]+`)/g);
   return (
     <span>
       {parts.map((part, i) => {
@@ -219,6 +301,16 @@ function MessageContent({ content }: { content: string }) {
             <em key={i} className="text-accent-glow not-italic font-medium">
               {part.slice(1, -1)}
             </em>
+          );
+        }
+        if (part.startsWith("`") && part.endsWith("`")) {
+          return (
+            <code
+              key={i}
+              className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]"
+            >
+              {part.slice(1, -1)}
+            </code>
           );
         }
         return part.split("\n").map((line, j) => (

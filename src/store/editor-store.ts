@@ -57,10 +57,11 @@ interface EditorState {
   addAsset: (asset: MediaAsset) => void;
   updateAsset: (assetId: string, updates: Partial<MediaAsset>) => void;
   removeAsset: (assetId: string) => void;
-  addClip: (clip: Omit<TimelineClip, "id">) => void;
+  addClip: (clip: Omit<TimelineClip, "id">, skipHistory?: boolean) => void;
   updateClip: (clipId: string, updates: Partial<TimelineClip>, recordHistory?: boolean) => void;
-  removeClip: (clipId: string) => void;
+  removeClip: (clipId: string, skipHistory?: boolean) => void;
   splitClipAtPlayhead: () => void;
+  splitClipAtTime: (time: number, clipId?: string, skipHistory?: boolean) => void;
   updateTrack: (trackId: string, updates: Partial<TimelineTrack>) => void;
   pushHistory: () => void;
   undo: () => void;
@@ -219,8 +220,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  addClip: (clip) => {
-    get().pushHistory();
+  addClip: (clip, skipHistory = false) => {
+    if (!skipHistory) get().pushHistory();
     set((state) => ({
       project: {
         ...state.project,
@@ -243,8 +244,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  removeClip: (clipId) => {
-    get().pushHistory();
+  removeClip: (clipId, skipHistory = false) => {
+    if (!skipHistory) get().pushHistory();
     set((state) => ({
       project: {
         ...state.project,
@@ -258,19 +259,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   splitClipAtPlayhead: () => {
     const state = get();
-    const { playhead, clips } = state.project;
-    const clip = clips.find(
-      (c) =>
-        c.id === state.selectedClipId ||
-        (playhead > c.startTime && playhead < c.startTime + c.duration)
-    );
+    get().splitClipAtTime(state.project.playhead, state.selectedClipId ?? undefined);
+  },
+
+  splitClipAtTime: (time, clipId, skipHistory = false) => {
+    const state = get();
+    const { clips } = state.project;
+
+    const clip = clipId
+      ? clips.find((c) => c.id === clipId)
+      : clips.find(
+          (c) =>
+            c.id === state.selectedClipId ||
+            (time > c.startTime && time < c.startTime + c.duration)
+        );
 
     if (!clip) return;
 
-    const splitOffset = playhead - clip.startTime;
+    const splitOffset = time - clip.startTime;
     if (splitOffset <= 0.05 || splitOffset >= clip.duration - 0.05) return;
 
-    get().pushHistory();
+    if (!skipHistory) get().pushHistory();
 
     const leftClip: TimelineClip = {
       ...clip,
@@ -282,7 +291,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const rightClip: TimelineClip = {
       ...clip,
       id: uuidv4(),
-      startTime: playhead,
+      startTime: time,
       duration: clip.duration - splitOffset,
       trimStart: clip.trimStart + splitOffset,
       label: `${clip.label} (2)`,
