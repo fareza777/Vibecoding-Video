@@ -29,14 +29,20 @@ AI-powered video editor dengan fokus **Vibecoding** — edit video menggunakan b
 - **Structured actions** — JSON actions → diterapkan ke timeline
 - **Fallback lokal** — parser regex jika API tidak tersedia
 
-### Fase 4 ✅ (Saat ini)
+### Fase 4 ✅
 - **MiniMax provider** — model default `MiniMax-M3` via OpenAI-compatible API
 - **Effects engine** — fade, blur, brightness, contrast, saturation, zoom, speed di preview
 - **Text overlay renderer** — teks tampil real-time di preview
 - **FFmpeg.wasm export** — export MP4/WebM/MOV langsung dari browser
 
-### Fase 5 (Berikutnya)
-- Project save/load (JSON)
+### Fase 5 ✅ (Saat ini)
+- **Save/Load proyek** — format `.vibe.json` dengan struktur timeline lengkap
+- **Auto-save** — setiap 30 detik ke localStorage + media ke IndexedDB
+- **Recent projects** — daftar proyek terakhir di dialog Open
+- **Multi-clip export** — trim per segment lalu concat dengan resolusi 720p/1080p/4K
+- **Shortcuts** — Ctrl+S save, Ctrl+O open
+
+### Fase 6 (Berikutnya)
 - Full timeline render dengan effects baked-in
 - Cloud sync
 
@@ -52,6 +58,8 @@ AI-powered video editor dengan fokus **Vibecoding** — edit video menggunakan b
 | Volume | `Volume 80%` |
 | Effects | `Blur` / `Brightness` / `Zoom 1.5x` |
 | Export | `Export video` |
+| Save | `Ctrl+S` atau tombol Save |
+| Open | `Ctrl+O` atau tombol Open |
 
 ## Quick Start
 
@@ -106,11 +114,17 @@ src/
 │   │   ├── MediaPanel.tsx
 │   │   ├── PreviewPanel.tsx
 │   │   ├── TimelinePanel.tsx
+│   │   ├── OpenProjectDialog.tsx
 │   │   └── VibecodingPanel.tsx
 │   └── ui/               # Reusable UI primitives
+├── hooks/
+│   ├── use-auto-save.ts
+│   └── use-project-bootstrap.ts
 ├── lib/
 │   ├── utils.ts
-│   └── vibecoding-engine.ts  # NL command parser
+│   ├── project-persistence.ts
+│   ├── media-storage.ts
+│   └── vibecoding-engine.ts
 ├── store/
 │   └── editor-store.ts   # Zustand state
 └── types/

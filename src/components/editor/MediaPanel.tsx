@@ -13,6 +13,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { saveMediaBlob } from "@/lib/media-storage";
 import { generateWaveform } from "@/lib/waveform";
 import { cn, formatDuration } from "@/lib/utils";
 import { useEditorStore } from "@/store/editor-store";
@@ -64,6 +65,7 @@ export function MediaPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activePanel = useEditorStore((s) => s.activePanel);
   const setActivePanel = useEditorStore((s) => s.setActivePanel);
+  const projectId = useEditorStore((s) => s.project.id);
   const assets = useEditorStore((s) => s.project.assets);
   const addAsset = useEditorStore((s) => s.addAsset);
   const updateAsset = useEditorStore((s) => s.updateAsset);
@@ -96,6 +98,10 @@ export function MediaPanel() {
 
         addAsset(asset);
 
+        saveMediaBlob(projectId, asset.id, file, file.name, file.type).catch(() => {
+          // IndexedDB unavailable — project still works with blob URL
+        });
+
         if (type === "video" || type === "audio") {
           generateWaveform(url).then((waveform) => {
             updateAsset(asset.id, { waveform });
@@ -103,7 +109,7 @@ export function MediaPanel() {
         }
       }
     },
-    [addAsset, updateAsset]
+    [addAsset, updateAsset, projectId]
   );
 
   const handleDrop = useCallback(

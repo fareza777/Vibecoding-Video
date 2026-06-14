@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
+import {
+  downloadProjectFile,
+  persistProjectMedia,
+  saveAutosave,
+} from "@/lib/project-persistence";
 import type {
   EditorProject,
   ExportSettings,
@@ -46,8 +51,13 @@ interface EditorState {
   snapEnabled: boolean;
   historyPast: HistoryEntry[];
   historyFuture: HistoryEntry[];
+  lastSavedAt: number | null;
 
   setProjectName: (name: string) => void;
+  loadProject: (project: EditorProject, exportSettings?: ExportSettings) => void;
+  resetProject: () => void;
+  setLastSaved: (timestamp: number) => void;
+  saveProject: () => Promise<void>;
   setPlayhead: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setActivePanel: (panel: PanelId) => void;
@@ -99,6 +109,14 @@ function cloneClips(clips: TimelineClip[]): TimelineClip[] {
   return clips.map((c) => ({ ...c, effects: [...c.effects] }));
 }
 
+function revokeAssetUrls(assets: MediaAsset[]): void {
+  for (const asset of assets) {
+    if (asset.url.startsWith("blob:")) {
+      URL.revokeObjectURL(asset.url);
+    }
+  }
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   project: createDefaultProject(),
   isPlaying: false,
@@ -118,6 +136,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   snapEnabled: true,
   historyPast: [],
   historyFuture: [],
+  lastSavedAt: null,
 
   setProjectName: (name) =>
     set((state) => ({
@@ -337,4 +356,46 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => ({
       exportSettings: { ...state.exportSettings, ...settings },
     })),
+
+  loadProject: (project, exportSettings) => {
+    const state = get();
+    revokeAssetUrls(state.project.assets);
+    set({
+      project: {
+        ...project,
+        assets: project.assets.map((a) => ({ ...a })),
+        clips: cloneClips(project.clips),
+        tracks: project.tracks.map((t) => ({ ...t })),
+      },
+      exportSettings: exportSettings ?? state.exportSettings,
+      historyPast: [],
+      historyFuture: [],
+      selectedClipId: null,
+      isPlaying: false,
+      lastSavedAt: null,
+    });
+  },
+
+  resetProject: () => {
+    const state = get();
+    revokeAssetUrls(state.project.assets);
+    set({
+      project: createDefaultProject(),
+      historyPast: [],
+      historyFuture: [],
+      selectedClipId: null,
+      isPlaying: false,
+      lastSavedAt: null,
+    });
+  },
+
+  setLastSaved: (timestamp) => set({ lastSavedAt: timestamp }),
+
+  saveProject: async () => {
+    const state = get();
+    await persistProjectMedia(state.project.id, state.project.assets);
+    downloadProjectFile(state.project, state.exportSettings);
+    saveAutosave(state.project, state.exportSettings);
+    set({ lastSavedAt: Date.now() });
+  },
 }));

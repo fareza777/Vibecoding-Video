@@ -16,15 +16,18 @@ import { useEditorStore } from "@/store/editor-store";
 interface HeaderProps {
   onOpenSettings?: () => void;
   onOpenExport?: () => void;
+  onOpenProject?: () => void;
 }
 
-export function Header({ onOpenSettings, onOpenExport }: HeaderProps) {
+export function Header({ onOpenSettings, onOpenExport, onOpenProject }: HeaderProps) {
   const projectName = useEditorStore((s) => s.project.name);
   const setProjectName = useEditorStore((s) => s.setProjectName);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const historyPast = useEditorStore((s) => s.historyPast);
   const historyFuture = useEditorStore((s) => s.historyFuture);
+  const lastSavedAt = useEditorStore((s) => s.lastSavedAt);
+  const saveProject = useEditorStore((s) => s.saveProject);
 
   return (
     <header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4 shrink-0">
@@ -43,12 +46,19 @@ export function Header({ onOpenSettings, onOpenExport }: HeaderProps) {
 
         <div className="h-5 w-px bg-border" />
 
-        <input
-          type="text"
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
-          className="bg-transparent text-sm text-foreground outline-none hover:bg-muted/50 focus:bg-muted/50 rounded px-2 py-1 max-w-[200px] transition-colors"
-        />
+        <div className="flex flex-col">
+          <input
+            type="text"
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
+            className="bg-transparent text-sm text-foreground outline-none hover:bg-muted/50 focus:bg-muted/50 rounded px-2 py-1 max-w-[200px] transition-colors"
+          />
+          {lastSavedAt && (
+            <span className="text-[9px] text-muted-foreground px-2">
+              Saved {new Date(lastSavedAt).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-1">
@@ -73,11 +83,16 @@ export function Header({ onOpenSettings, onOpenExport }: HeaderProps) {
 
         <div className="h-5 w-px bg-border mx-2" />
 
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={onOpenProject} title="Open (Ctrl+O)">
           <FolderOpen className="h-3.5 w-3.5" />
           Open
         </Button>
-        <Button variant="ghost" size="sm">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => saveProject()}
+          title="Save (Ctrl+S)"
+        >
           <Save className="h-3.5 w-3.5" />
           Save
         </Button>

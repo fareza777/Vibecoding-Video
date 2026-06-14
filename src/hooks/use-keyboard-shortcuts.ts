@@ -19,6 +19,7 @@ export function useKeyboardShortcuts() {
   const redo = useEditorStore((s) => s.redo);
   const toggleSnap = useEditorStore((s) => s.toggleSnap);
   const setSelectedClip = useEditorStore((s) => s.setSelectedClip);
+  const saveProject = useEditorStore((s) => s.saveProject);
 
   useEffect(() => {
     const isInputFocused = () => {
@@ -64,6 +65,18 @@ export function useKeyboardShortcuts() {
 
       if (key === "escape") {
         setSelectedClip(null);
+        return;
+      }
+
+      if (ctrl && key === "s") {
+        e.preventDefault();
+        saveProject();
+        return;
+      }
+
+      if (ctrl && key === "o") {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("vibecoding:open-project"));
         return;
       }
 
@@ -155,5 +168,6 @@ export function useKeyboardShortcuts() {
     redo,
     toggleSnap,
     setSelectedClip,
+    saveProject,
   ]);
 }

@@ -10,6 +10,12 @@ export type ExportProgress = {
 
 let ffmpegInstance: FFmpeg | null = null;
 
+const RESOLUTION_MAP = {
+  "720p": { width: 1280, height: 720 },
+  "1080p": { width: 1920, height: 1080 },
+  "4k": { width: 3840, height: 2160 },
+} as const;
+
 export async function loadFFmpeg(
   onProgress?: (p: ExportProgress) => void
 ): Promise<FFmpeg> {
@@ -53,15 +59,36 @@ function getVideoClipsSorted(clips: TimelineClip[]): TimelineClip[] {
     .sort((a, b) => a.startTime - b.startTime);
 }
 
-async function fetchAssetBlob(
+function getScaleFilter(settings: ExportSettings): string {
+  const { width, height } = RESOLUTION_MAP[settings.resolution];
+  return `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
+}
+
+function getEncodeArgs(settings: ExportSettings): string[] {
+  const crfMap = { draft: 28, standard: 23, high: 18, ultra: 15 };
+  const crf = crfMap[settings.quality];
+  return [
+    "-c:v",
+    "libx264",
+    "-preset",
+    settings.quality === "draft" ? "ultrafast" : "medium",
+    "-crf",
+    String(crf),
+    "-c:a",
+    "aac",
+    "-r",
+    String(settings.fps),
+    "-movflags",
+    "+faststart",
+  ];
+}
+
+async function writeAssetFile(
   asset: MediaAsset,
   ffmpeg: FFmpeg,
-  index: number
-): Promise<string> {
-  const ext = asset.name.split(".").pop() ?? "mp4";
-  const filename = `input_${index}.${ext}`;
+  filename: string
+): Promise<void> {
   await ffmpeg.writeFile(filename, await fetchFile(asset.url));
-  return filename;
 }
 
 export async function exportTimeline(
@@ -84,68 +111,81 @@ export async function exportTimeline(
   });
 
   const assetMap = new Map(project.assets.map((a) => [a.id, a]));
-  const inputFiles: string[] = [];
+  const assetFileMap = new Map<string, string>();
+  const scaleFilter = getScaleFilter(settings);
+  const encodeArgs = getEncodeArgs(settings);
+  const outputName = `output.${settings.format === "mov" ? "mov" : settings.format}`;
+
+  let fileIndex = 0;
+  for (const clip of videoClips) {
+    const asset = assetMap.get(clip.assetId);
+    if (!asset || asset.type !== "video") continue;
+    if (assetFileMap.has(asset.id)) continue;
+
+    const ext = asset.name.split(".").pop() ?? "mp4";
+    const filename = `input_${fileIndex}.${ext}`;
+    await writeAssetFile(asset, ffmpeg, filename);
+    assetFileMap.set(asset.id, filename);
+    fileIndex++;
+
+    onProgress?.({
+      phase: "preparing",
+      progress: 10 + Math.round((fileIndex / videoClips.length) * 20),
+      message: `Loaded ${asset.name}`,
+    });
+  }
+
+  if (assetFileMap.size === 0) {
+    throw new Error("Tidak ada file video valid untuk export.");
+  }
+
+  const segmentFiles: string[] = [];
 
   for (let i = 0; i < videoClips.length; i++) {
     const clip = videoClips[i];
     const asset = assetMap.get(clip.assetId);
     if (!asset || asset.type !== "video") continue;
 
-    const filename = await fetchAssetBlob(asset, ffmpeg, i);
-    inputFiles.push(filename);
+    const inputFile = assetFileMap.get(asset.id);
+    if (!inputFile) continue;
 
-    onProgress?.({
-      phase: "preparing",
-      progress: 10 + Math.round((i / videoClips.length) * 30),
-      message: `Loaded ${asset.name}`,
-    });
-  }
-
-  if (inputFiles.length === 0) {
-    throw new Error("Tidak ada file video valid untuk export.");
-  }
-
-  const crfMap = { draft: 28, standard: 23, high: 18, ultra: 15 };
-  const crf = crfMap[settings.quality];
-  const outputName = `output.${settings.format === "mov" ? "mov" : settings.format}`;
-
-  if (inputFiles.length === 1) {
-    const clip = videoClips[0];
-    const args = [
-      "-ss",
-      String(clip.trimStart),
-      "-i",
-      inputFiles[0],
-      "-t",
-      String(clip.duration),
-      "-c:v",
-      "libx264",
-      "-preset",
-      settings.quality === "draft" ? "ultrafast" : "medium",
-      "-crf",
-      String(crf),
-      "-c:a",
-      "aac",
-      "-movflags",
-      "+faststart",
-      outputName,
-    ];
+    const segmentName = `segment_${i}.mp4`;
+    segmentFiles.push(segmentName);
 
     onProgress?.({
       phase: "encoding",
-      progress: 40,
-      message: "Encoding video...",
+      progress: 30 + Math.round((i / videoClips.length) * 40),
+      message: `Trimming clip ${i + 1}/${videoClips.length}...`,
     });
 
-    await ffmpeg.exec(args);
+    await ffmpeg.exec([
+      "-ss",
+      String(clip.trimStart),
+      "-i",
+      inputFile,
+      "-t",
+      String(clip.duration),
+      "-vf",
+      scaleFilter,
+      ...encodeArgs,
+      segmentName,
+    ]);
+  }
+
+  if (segmentFiles.length === 0) {
+    throw new Error("Tidak ada segment valid untuk export.");
+  }
+
+  if (segmentFiles.length === 1) {
+    await ffmpeg.exec(["-i", segmentFiles[0], "-c", "copy", outputName]);
   } else {
-    const listContent = inputFiles.map((f) => `file '${f}'`).join("\n");
+    const listContent = segmentFiles.map((f) => `file '${f}'`).join("\n");
     await ffmpeg.writeFile("concat.txt", listContent);
 
     onProgress?.({
       phase: "encoding",
-      progress: 40,
-      message: `Concatenating ${inputFiles.length} clips...`,
+      progress: 75,
+      message: `Concatenating ${segmentFiles.length} segments...`,
     });
 
     await ffmpeg.exec([
@@ -155,16 +195,8 @@ export async function exportTimeline(
       "0",
       "-i",
       "concat.txt",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "medium",
-      "-crf",
-      String(crf),
-      "-c:a",
-      "aac",
-      "-movflags",
-      "+faststart",
+      "-c",
+      "copy",
       outputName,
     ]);
   }
