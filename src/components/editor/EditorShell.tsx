@@ -44,7 +44,14 @@ export function EditorShell() {
       </div>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} />
-      <OpenProjectDialog open={openProjectOpen} onOpenChange={setOpenProjectOpen} />
+      <OpenProjectDialog
+        open={openProjectOpen}
+        onOpenChange={setOpenProjectOpen}
+        onOpenSettings={() => {
+          setOpenProjectOpen(false);
+          setSettingsOpen(true);
+        }}
+      />
     </div>
   );
 }

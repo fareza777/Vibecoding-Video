@@ -35,16 +35,23 @@ AI-powered video editor dengan fokus **Vibecoding** — edit video menggunakan b
 - **Text overlay renderer** — teks tampil real-time di preview
 - **FFmpeg.wasm export** — export MP4/WebM/MOV langsung dari browser
 
-### Fase 5 ✅ (Saat ini)
+### Fase 5 ✅
 - **Save/Load proyek** — format `.vibe.json` dengan struktur timeline lengkap
 - **Auto-save** — setiap 30 detik ke localStorage + media ke IndexedDB
 - **Recent projects** — daftar proyek terakhir di dialog Open
 - **Multi-clip export** — trim per segment lalu concat dengan resolusi 720p/1080p/4K
 - **Shortcuts** — Ctrl+S save, Ctrl+O open
 
-### Fase 6 (Berikutnya)
-- Full timeline render dengan effects baked-in
-- Cloud sync
+### Fase 6 ✅ (Saat ini)
+- **Effects baked-in export** — fade, blur, brightness, zoom, speed, teks → FFmpeg filters
+- **Toggle bake effects** — aktif/nonaktif di dialog Export
+- **Cloud sync (Supabase)** — upload/download `.vibe.json` ke Supabase Storage
+- **Sync key** — folder unik per user di bucket `vibecoding-projects`
+
+### Fase 7 (Berikutnya)
+- Audio track mixing di export
+- Media upload ke cloud storage
+- Collaborative editing
 
 ## Vibecoding Commands
 
@@ -91,6 +98,16 @@ Atau masukkan API key di **Settings** (disimpan lokal di browser).
 
 - Provider: [MiniMax](https://platform.minimax.io/)
 - Model default: **MiniMax-M3**
+
+### Cloud Sync Setup (Supabase)
+
+1. Buat project di [Supabase](https://supabase.com/)
+2. Buat Storage bucket: `vibecoding-projects` (public atau RLS policy untuk anon)
+3. Di **Settings** → Cloud Sync, isi:
+   - Supabase URL
+   - Anon key
+   - Sync key (folder ID unik Anda, min 3 karakter)
+4. Upload via tombol **Sync** di header atau dialog **Open**
 
 ## Tech Stack
 

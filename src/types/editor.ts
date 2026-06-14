@@ -105,6 +105,14 @@ export interface ExportSettings {
   quality: "draft" | "standard" | "high" | "ultra";
   resolution: "720p" | "1080p" | "4k";
   fps: 24 | 30 | 60;
+  bakeEffects?: boolean;
+}
+
+export interface CloudSettings {
+  enabled: boolean;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+  syncKey: string;
 }
 
 export type AiModel = "MiniMax-M3" | "MiniMax-M2.5" | "MiniMax-M2.1";

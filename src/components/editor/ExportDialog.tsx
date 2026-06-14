@@ -137,6 +137,34 @@ export function ExportDialog({ open, onOpenChange }: ExportDialogProps) {
               </Field>
             </div>
 
+            <label className="flex items-center justify-between py-1">
+              <div>
+                <span className="text-xs">Bake effects ke video</span>
+                <p className="text-[10px] text-muted-foreground">
+                  Fade, blur, teks, zoom, speed → FFmpeg filters
+                </p>
+              </div>
+              <button
+                onClick={() =>
+                  update({ bakeEffects: !(exportSettings.bakeEffects !== false) })
+                }
+                className={cn(
+                  "w-9 h-5 rounded-full transition-colors relative shrink-0",
+                  exportSettings.bakeEffects !== false ? "bg-accent" : "bg-muted"
+                )}
+                disabled={isExporting}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
+                    exportSettings.bakeEffects !== false
+                      ? "translate-x-4"
+                      : "translate-x-0.5"
+                  )}
+                />
+              </button>
+            </label>
+
             <p className="text-[10px] text-muted-foreground">
               Export via FFmpeg.wasm di browser. Clip video:{" "}
               {project.clips.filter((c) => c.trackId.startsWith("track-video")).length}

@@ -79,6 +79,7 @@ const projectFileSchema = z.object({
       quality: z.enum(["draft", "standard", "high", "ultra"]),
       resolution: z.enum(["720p", "1080p", "4k"]),
       fps: z.union([z.literal(24), z.literal(30), z.literal(60)]),
+      bakeEffects: z.boolean().optional(),
     })
     .optional(),
 });

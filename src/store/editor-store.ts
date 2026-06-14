@@ -129,6 +129,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     quality: "high",
     resolution: "1080p",
     fps: 30,
+    bakeEffects: true,
   },
   sidebarWidth: 280,
   vibecodingWidth: 360,

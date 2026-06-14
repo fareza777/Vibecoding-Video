@@ -1,5 +1,10 @@
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import {
+  buildAudioFilter,
+  buildClipVideoFilter,
+  getScaleFilter,
+} from "@/lib/ffmpeg-filters";
 import type { EditorProject, ExportSettings, MediaAsset, TimelineClip } from "@/types/editor";
 
 export type ExportProgress = {
@@ -9,12 +14,6 @@ export type ExportProgress = {
 };
 
 let ffmpegInstance: FFmpeg | null = null;
-
-const RESOLUTION_MAP = {
-  "720p": { width: 1280, height: 720 },
-  "1080p": { width: 1920, height: 1080 },
-  "4k": { width: 3840, height: 2160 },
-} as const;
 
 export async function loadFFmpeg(
   onProgress?: (p: ExportProgress) => void
@@ -59,11 +58,6 @@ function getVideoClipsSorted(clips: TimelineClip[]): TimelineClip[] {
     .sort((a, b) => a.startTime - b.startTime);
 }
 
-function getScaleFilter(settings: ExportSettings): string {
-  const { width, height } = RESOLUTION_MAP[settings.resolution];
-  return `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
-}
-
 function getEncodeArgs(settings: ExportSettings): string[] {
   const crfMap = { draft: 28, standard: 23, high: 18, ultra: 15 };
   const crf = crfMap[settings.quality];
@@ -91,6 +85,56 @@ async function writeAssetFile(
   await ffmpeg.writeFile(filename, await fetchFile(asset.url));
 }
 
+function buildSegmentArgs(
+  clip: TimelineClip,
+  asset: MediaAsset,
+  inputFile: string,
+  settings: ExportSettings,
+  segmentName: string
+): string[] {
+  const bakeEffects = settings.bakeEffects !== false;
+  const videoFilter = bakeEffects
+    ? buildClipVideoFilter(clip, settings)
+    : getScaleFilter(settings);
+  const audioFilter = bakeEffects ? buildAudioFilter(clip) : null;
+  const encodeArgs = getEncodeArgs(settings);
+
+  if (asset.type === "image") {
+    return [
+      "-loop",
+      "1",
+      "-framerate",
+      String(settings.fps),
+      "-i",
+      inputFile,
+      "-t",
+      String(clip.duration),
+      "-vf",
+      videoFilter,
+      ...encodeArgs,
+      "-an",
+      segmentName,
+    ];
+  }
+
+  const args = [
+    "-ss",
+    String(clip.trimStart),
+    "-i",
+    inputFile,
+    "-t",
+    String(clip.duration),
+    "-vf",
+    videoFilter,
+  ];
+
+  if (audioFilter) {
+    args.push("-af", audioFilter);
+  }
+
+  return [...args, ...encodeArgs, segmentName];
+}
+
 export async function exportTimeline(
   project: EditorProject,
   settings: ExportSettings,
@@ -112,17 +156,20 @@ export async function exportTimeline(
 
   const assetMap = new Map(project.assets.map((a) => [a.id, a]));
   const assetFileMap = new Map<string, string>();
-  const scaleFilter = getScaleFilter(settings);
-  const encodeArgs = getEncodeArgs(settings);
   const outputName = `output.${settings.format === "mov" ? "mov" : settings.format}`;
+  const baking = settings.bakeEffects !== false;
 
   let fileIndex = 0;
   for (const clip of videoClips) {
     const asset = assetMap.get(clip.assetId);
-    if (!asset || asset.type !== "video") continue;
+    if (!asset) continue;
+    if (asset.type !== "video" && asset.type !== "image") continue;
     if (assetFileMap.has(asset.id)) continue;
 
-    const ext = asset.name.split(".").pop() ?? "mp4";
+    const ext =
+      asset.type === "image"
+        ? (asset.name.split(".").pop() ?? "png")
+        : (asset.name.split(".").pop() ?? "mp4");
     const filename = `input_${fileIndex}.${ext}`;
     await writeAssetFile(asset, ffmpeg, filename);
     assetFileMap.set(asset.id, filename);
@@ -136,7 +183,7 @@ export async function exportTimeline(
   }
 
   if (assetFileMap.size === 0) {
-    throw new Error("Tidak ada file video valid untuk export.");
+    throw new Error("Tidak ada file video/gambar valid untuk export.");
   }
 
   const segmentFiles: string[] = [];
@@ -144,7 +191,7 @@ export async function exportTimeline(
   for (let i = 0; i < videoClips.length; i++) {
     const clip = videoClips[i];
     const asset = assetMap.get(clip.assetId);
-    if (!asset || asset.type !== "video") continue;
+    if (!asset || (asset.type !== "video" && asset.type !== "image")) continue;
 
     const inputFile = assetFileMap.get(asset.id);
     if (!inputFile) continue;
@@ -155,21 +202,12 @@ export async function exportTimeline(
     onProgress?.({
       phase: "encoding",
       progress: 30 + Math.round((i / videoClips.length) * 40),
-      message: `Trimming clip ${i + 1}/${videoClips.length}...`,
+      message: baking
+        ? `Rendering effects clip ${i + 1}/${videoClips.length}...`
+        : `Trimming clip ${i + 1}/${videoClips.length}...`,
     });
 
-    await ffmpeg.exec([
-      "-ss",
-      String(clip.trimStart),
-      "-i",
-      inputFile,
-      "-t",
-      String(clip.duration),
-      "-vf",
-      scaleFilter,
-      ...encodeArgs,
-      segmentName,
-    ]);
+    await ffmpeg.exec(buildSegmentArgs(clip, asset, inputFile, settings, segmentName));
   }
 
   if (segmentFiles.length === 0) {
@@ -223,7 +261,7 @@ export async function exportTimeline(
   onProgress?.({
     phase: "done",
     progress: 100,
-    message: "Export selesai!",
+    message: baking ? "Export dengan effects selesai!" : "Export selesai!",
   });
 
   return new Blob([bytes.buffer], { type: mime });
