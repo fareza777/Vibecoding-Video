@@ -1,0 +1,102 @@
+export type MediaType = "video" | "audio" | "image";
+
+export interface MediaAsset {
+  id: string;
+  name: string;
+  type: MediaType;
+  url: string;
+  duration: number;
+  width?: number;
+  height?: number;
+  thumbnail?: string;
+  size: number;
+  createdAt: number;
+}
+
+export type TrackType = "video" | "audio" | "text" | "effect";
+
+export interface TimelineClip {
+  id: string;
+  assetId: string;
+  trackId: string;
+  startTime: number;
+  duration: number;
+  trimStart: number;
+  trimEnd: number;
+  label: string;
+  color: string;
+  opacity: number;
+  volume: number;
+  effects: ClipEffect[];
+}
+
+export interface ClipEffect {
+  id: string;
+  type: EffectType;
+  params: Record<string, number | string | boolean>;
+  enabled: boolean;
+}
+
+export type EffectType =
+  | "fade-in"
+  | "fade-out"
+  | "blur"
+  | "brightness"
+  | "contrast"
+  | "saturation"
+  | "speed"
+  | "zoom"
+  | "crop"
+  | "text-overlay"
+  | "transition";
+
+export interface TimelineTrack {
+  id: string;
+  type: TrackType;
+  name: string;
+  locked: boolean;
+  muted: boolean;
+  visible: boolean;
+  height: number;
+}
+
+export interface VibeMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: number;
+  actions?: VibeAction[];
+  status?: "pending" | "applied" | "failed";
+}
+
+export interface VibeAction {
+  id: string;
+  type: string;
+  description: string;
+  params: Record<string, unknown>;
+  applied: boolean;
+}
+
+export interface EditorProject {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  duration: number;
+  fps: number;
+  resolution: { width: number; height: number };
+  assets: MediaAsset[];
+  tracks: TimelineTrack[];
+  clips: TimelineClip[];
+  playhead: number;
+  zoom: number;
+}
+
+export type PanelId = "media" | "effects" | "text" | "audio";
+
+export interface ExportSettings {
+  format: "mp4" | "webm" | "mov";
+  quality: "draft" | "standard" | "high" | "ultra";
+  resolution: "720p" | "1080p" | "4k";
+  fps: 24 | 30 | 60;
+}
