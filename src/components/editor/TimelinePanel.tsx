@@ -3,6 +3,7 @@
 import { useCallback, useRef } from "react";
 import {
   Lock,
+  Magnet,
   Minus,
   Plus,
   Eye,
@@ -12,8 +13,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatTime } from "@/lib/utils";
+import { PIXELS_PER_SECOND } from "@/lib/timeline-utils";
 import { useEditorStore } from "@/store/editor-store";
 import type { TimelineTrack } from "@/types/editor";
+import { TimelineClipBlock } from "./TimelineClipBlock";
 
 const TRACK_COLORS: Record<string, string> = {
   video: "bg-track-video/20 border-track-video/40",
@@ -22,26 +25,28 @@ const TRACK_COLORS: Record<string, string> = {
   effect: "bg-track-effect/20 border-track-effect/40",
 };
 
-const PIXELS_PER_SECOND = 40;
-
 export function TimelinePanel() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const tracks = useEditorStore((s) => s.project.tracks);
   const clips = useEditorStore((s) => s.project.clips);
+  const assets = useEditorStore((s) => s.project.assets);
   const playhead = useEditorStore((s) => s.project.playhead);
   const duration = useEditorStore((s) => s.project.duration);
   const zoom = useEditorStore((s) => s.project.zoom);
   const setPlayhead = useEditorStore((s) => s.setPlayhead);
   const setTimelineZoom = useEditorStore((s) => s.setTimelineZoom);
   const selectedClipId = useEditorStore((s) => s.selectedClipId);
-  const setSelectedClip = useEditorStore((s) => s.setSelectedClip);
   const timelineHeight = useEditorStore((s) => s.timelineHeight);
+  const snapEnabled = useEditorStore((s) => s.snapEnabled);
+  const toggleSnap = useEditorStore((s) => s.toggleSnap);
+  const updateTrack = useEditorStore((s) => s.updateTrack);
 
   const pps = PIXELS_PER_SECOND * zoom;
   const totalWidth = duration * pps;
 
   const handleTimelineClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      if ((e.target as HTMLElement).closest("[data-clip-block]")) return;
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left + (timelineRef.current?.scrollLeft ?? 0);
       const time = x / pps;
@@ -50,7 +55,7 @@ export function TimelinePanel() {
     [pps, duration, setPlayhead]
   );
 
-  const rulerMarks = [];
+  const rulerMarks: number[] = [];
   const interval = zoom >= 2 ? 1 : zoom >= 1 ? 5 : 10;
   for (let t = 0; t <= duration; t += interval) {
     rulerMarks.push(t);
@@ -62,12 +67,25 @@ export function TimelinePanel() {
       style={{ height: timelineHeight }}
     >
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-surface">
-        <span className="text-xs font-medium text-muted-foreground">Timeline</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Timeline</span>
+          <Button
+            variant={snapEnabled ? "cyan" : "ghost"}
+            size="sm"
+            onClick={toggleSnap}
+            title="Toggle snap (N)"
+            className="h-6 px-2 text-[10px]"
+          >
+            <Magnet className="h-3 w-3" />
+            Snap
+          </Button>
+        </div>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon-sm"
             onClick={() => setTimelineZoom(zoom - 0.25)}
+            title="Zoom out (Ctrl+-)"
           >
             <Minus className="h-3 w-3" />
           </Button>
@@ -78,6 +96,7 @@ export function TimelinePanel() {
             variant="ghost"
             size="icon-sm"
             onClick={() => setTimelineZoom(zoom + 0.25)}
+            title="Zoom in (Ctrl++)"
           >
             <Plus className="h-3 w-3" />
           </Button>
@@ -88,7 +107,7 @@ export function TimelinePanel() {
         <div className="w-[140px] shrink-0 border-r border-border bg-surface">
           <div className="h-6 border-b border-border" />
           {tracks.map((track) => (
-            <TrackLabel key={track.id} track={track} />
+            <TrackLabel key={track.id} track={track} onUpdate={updateTrack} />
           ))}
         </div>
 
@@ -116,6 +135,7 @@ export function TimelinePanel() {
             {tracks.map((track) => (
               <div
                 key={track.id}
+                data-track-id={track.id}
                 className={cn(
                   "relative border-b border-border/50",
                   TRACK_COLORS[track.type]
@@ -125,29 +145,16 @@ export function TimelinePanel() {
                 {clips
                   .filter((c) => c.trackId === track.id)
                   .map((clip) => (
-                    <div
-                      key={clip.id}
-                      className={cn(
-                        "absolute top-1 bottom-1 rounded-md border cursor-pointer transition-all",
-                        "flex items-center px-2 overflow-hidden",
-                        selectedClipId === clip.id
-                          ? "ring-2 ring-accent ring-offset-1 ring-offset-timeline-bg z-10"
-                          : "hover:brightness-110"
-                      )}
-                      style={{
-                        left: clip.startTime * pps,
-                        width: clip.duration * pps,
-                        backgroundColor: clip.color + "40",
-                        borderColor: clip.color + "80",
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedClip(clip.id);
-                      }}
-                    >
-                      <span className="text-[10px] font-medium truncate text-white/90">
-                        {clip.label}
-                      </span>
+                    <div key={clip.id} data-clip-block>
+                      <TimelineClipBlock
+                        clip={clip}
+                        asset={assets.find((a) => a.id === clip.assetId)}
+                        track={track}
+                        pps={pps}
+                        isSelected={selectedClipId === clip.id}
+                        timelineRef={timelineRef}
+                        tracks={tracks}
+                      />
                     </div>
                   ))}
               </div>
@@ -162,24 +169,54 @@ export function TimelinePanel() {
           </div>
         </div>
       </div>
+
+      <div className="flex items-center gap-3 px-3 py-1 border-t border-border/50 bg-surface/30">
+        <span className="text-[9px] text-muted-foreground font-mono">
+          <kbd className="px-1 py-0.5 rounded bg-muted text-[8px]">Space</kbd> Play
+        </span>
+        <span className="text-[9px] text-muted-foreground font-mono">
+          <kbd className="px-1 py-0.5 rounded bg-muted text-[8px]">S</kbd> Split
+        </span>
+        <span className="text-[9px] text-muted-foreground font-mono">
+          <kbd className="px-1 py-0.5 rounded bg-muted text-[8px]">Del</kbd> Delete
+        </span>
+        <span className="text-[9px] text-muted-foreground font-mono">
+          <kbd className="px-1 py-0.5 rounded bg-muted text-[8px]">J/K/L</kbd> Shuttle
+        </span>
+        <span className="text-[9px] text-muted-foreground font-mono">
+          <kbd className="px-1 py-0.5 rounded bg-muted text-[8px]">Ctrl+Z</kbd> Undo
+        </span>
+      </div>
     </div>
   );
 }
 
-function TrackLabel({ track }: { track: TimelineTrack }) {
+function TrackLabel({
+  track,
+  onUpdate,
+}: {
+  track: TimelineTrack;
+  onUpdate: (id: string, updates: Partial<TimelineTrack>) => void;
+}) {
   return (
     <div
       className="flex items-center gap-1.5 px-2 border-b border-border/50 text-[10px]"
       style={{ height: track.height }}
     >
-      <button className="text-muted-foreground hover:text-foreground">
+      <button
+        className="text-muted-foreground hover:text-foreground"
+        onClick={() => onUpdate(track.id, { muted: !track.muted })}
+      >
         {track.muted ? (
           <VolumeX className="h-3 w-3" />
         ) : (
           <Volume2 className="h-3 w-3" />
         )}
       </button>
-      <button className="text-muted-foreground hover:text-foreground">
+      <button
+        className="text-muted-foreground hover:text-foreground"
+        onClick={() => onUpdate(track.id, { visible: !track.visible })}
+      >
         {track.visible ? (
           <Eye className="h-3 w-3" />
         ) : (

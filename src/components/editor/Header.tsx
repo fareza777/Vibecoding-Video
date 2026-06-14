@@ -16,6 +16,10 @@ import { useEditorStore } from "@/store/editor-store";
 export function Header() {
   const projectName = useEditorStore((s) => s.project.name);
   const setProjectName = useEditorStore((s) => s.setProjectName);
+  const undo = useEditorStore((s) => s.undo);
+  const redo = useEditorStore((s) => s.redo);
+  const historyPast = useEditorStore((s) => s.historyPast);
+  const historyFuture = useEditorStore((s) => s.historyFuture);
 
   return (
     <header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4 shrink-0">
@@ -43,10 +47,22 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="icon-sm" title="Undo">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Undo (Ctrl+Z)"
+          onClick={undo}
+          disabled={historyPast.length === 0}
+        >
           <Undo2 className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="icon-sm" title="Redo">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title="Redo (Ctrl+Y)"
+          onClick={redo}
+          disabled={historyFuture.length === 0}
+        >
           <Redo2 className="h-3.5 w-3.5" />
         </Button>
 

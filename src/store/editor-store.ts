@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import type {
   EditorProject,
   ExportSettings,
+  HistoryEntry,
   MediaAsset,
   PanelId,
   TimelineClip,
@@ -29,6 +30,8 @@ const INITIAL_MESSAGES: VibeMessage[] = [
   },
 ];
 
+const MAX_HISTORY = 50;
+
 interface EditorState {
   project: EditorProject;
   isPlaying: boolean;
@@ -40,6 +43,9 @@ interface EditorState {
   sidebarWidth: number;
   vibecodingWidth: number;
   timelineHeight: number;
+  snapEnabled: boolean;
+  historyPast: HistoryEntry[];
+  historyFuture: HistoryEntry[];
 
   setProjectName: (name: string) => void;
   setPlayhead: (time: number) => void;
@@ -47,11 +53,18 @@ interface EditorState {
   setActivePanel: (panel: PanelId) => void;
   setSelectedClip: (clipId: string | null) => void;
   setTimelineZoom: (zoom: number) => void;
+  toggleSnap: () => void;
   addAsset: (asset: MediaAsset) => void;
+  updateAsset: (assetId: string, updates: Partial<MediaAsset>) => void;
   removeAsset: (assetId: string) => void;
   addClip: (clip: Omit<TimelineClip, "id">) => void;
-  updateClip: (clipId: string, updates: Partial<TimelineClip>) => void;
+  updateClip: (clipId: string, updates: Partial<TimelineClip>, recordHistory?: boolean) => void;
   removeClip: (clipId: string) => void;
+  splitClipAtPlayhead: () => void;
+  updateTrack: (trackId: string, updates: Partial<TimelineTrack>) => void;
+  pushHistory: () => void;
+  undo: () => void;
+  redo: () => void;
   addVibeMessage: (message: Omit<VibeMessage, "id" | "timestamp">) => void;
   setVibecodingProcessing: (processing: boolean) => void;
   setExportSettings: (settings: Partial<ExportSettings>) => void;
@@ -74,7 +87,18 @@ function createDefaultProject(): EditorProject {
   };
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+function snapshot(state: EditorState): HistoryEntry {
+  return {
+    clips: state.project.clips.map((c) => ({ ...c, effects: [...c.effects] })),
+    selectedClipId: state.selectedClipId,
+  };
+}
+
+function cloneClips(clips: TimelineClip[]): TimelineClip[] {
+  return clips.map((c) => ({ ...c, effects: [...c.effects] }));
+}
+
+export const useEditorStore = create<EditorState>((set, get) => ({
   project: createDefaultProject(),
   isPlaying: false,
   activePanel: "media",
@@ -90,6 +114,9 @@ export const useEditorStore = create<EditorState>((set) => ({
   sidebarWidth: 280,
   vibecodingWidth: 360,
   timelineHeight: 220,
+  snapEnabled: true,
+  historyPast: [],
+  historyFuture: [],
 
   setProjectName: (name) =>
     set((state) => ({
@@ -112,6 +139,54 @@ export const useEditorStore = create<EditorState>((set) => ({
       project: { ...state.project, zoom: Math.max(0.25, Math.min(4, zoom)) },
     })),
 
+  toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
+
+  pushHistory: () => {
+    const state = get();
+    const entry = snapshot(state);
+    set({
+      historyPast: [...state.historyPast.slice(-MAX_HISTORY + 1), entry],
+      historyFuture: [],
+    });
+  },
+
+  undo: () => {
+    const state = get();
+    if (state.historyPast.length === 0) return;
+
+    const previous = state.historyPast[state.historyPast.length - 1];
+    const current = snapshot(state);
+    set({
+      historyPast: state.historyPast.slice(0, -1),
+      historyFuture: [current, ...state.historyFuture],
+      project: {
+        ...state.project,
+        clips: cloneClips(previous.clips),
+        updatedAt: Date.now(),
+      },
+      selectedClipId: previous.selectedClipId,
+    });
+  },
+
+  redo: () => {
+    const state = get();
+    if (state.historyFuture.length === 0) return;
+
+    const next = state.historyFuture[0];
+    const current = snapshot(state);
+
+    set({
+      historyPast: [...state.historyPast, current],
+      historyFuture: state.historyFuture.slice(1),
+      project: {
+        ...state.project,
+        clips: cloneClips(next.clips),
+        updatedAt: Date.now(),
+      },
+      selectedClipId: next.selectedClipId,
+    });
+  },
+
   addAsset: (asset) =>
     set((state) => ({
       project: {
@@ -121,7 +196,19 @@ export const useEditorStore = create<EditorState>((set) => ({
       },
     })),
 
-  removeAsset: (assetId) =>
+  updateAsset: (assetId, updates) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        assets: state.project.assets.map((a) =>
+          a.id === assetId ? { ...a, ...updates } : a
+        ),
+        updatedAt: Date.now(),
+      },
+    })),
+
+  removeAsset: (assetId) => {
+    get().pushHistory();
     set((state) => ({
       project: {
         ...state.project,
@@ -129,18 +216,22 @@ export const useEditorStore = create<EditorState>((set) => ({
         clips: state.project.clips.filter((c) => c.assetId !== assetId),
         updatedAt: Date.now(),
       },
-    })),
+    }));
+  },
 
-  addClip: (clip) =>
+  addClip: (clip) => {
+    get().pushHistory();
     set((state) => ({
       project: {
         ...state.project,
         clips: [...state.project.clips, { ...clip, id: uuidv4() }],
         updatedAt: Date.now(),
       },
-    })),
+    }));
+  },
 
-  updateClip: (clipId, updates) =>
+  updateClip: (clipId, updates, recordHistory = false) => {
+    if (recordHistory) get().pushHistory();
     set((state) => ({
       project: {
         ...state.project,
@@ -149,9 +240,11 @@ export const useEditorStore = create<EditorState>((set) => ({
         ),
         updatedAt: Date.now(),
       },
-    })),
+    }));
+  },
 
-  removeClip: (clipId) =>
+  removeClip: (clipId) => {
+    get().pushHistory();
     set((state) => ({
       project: {
         ...state.project,
@@ -160,6 +253,64 @@ export const useEditorStore = create<EditorState>((set) => ({
       },
       selectedClipId:
         state.selectedClipId === clipId ? null : state.selectedClipId,
+    }));
+  },
+
+  splitClipAtPlayhead: () => {
+    const state = get();
+    const { playhead, clips } = state.project;
+    const clip = clips.find(
+      (c) =>
+        c.id === state.selectedClipId ||
+        (playhead > c.startTime && playhead < c.startTime + c.duration)
+    );
+
+    if (!clip) return;
+
+    const splitOffset = playhead - clip.startTime;
+    if (splitOffset <= 0.05 || splitOffset >= clip.duration - 0.05) return;
+
+    get().pushHistory();
+
+    const leftClip: TimelineClip = {
+      ...clip,
+      id: clip.id,
+      duration: splitOffset,
+      trimEnd: clip.trimStart + splitOffset,
+    };
+
+    const rightClip: TimelineClip = {
+      ...clip,
+      id: uuidv4(),
+      startTime: playhead,
+      duration: clip.duration - splitOffset,
+      trimStart: clip.trimStart + splitOffset,
+      label: `${clip.label} (2)`,
+    };
+
+    set((s) => ({
+      project: {
+        ...s.project,
+        clips: [
+          ...s.project.clips.filter((c) => c.id !== clip.id),
+          leftClip,
+          rightClip,
+        ],
+        updatedAt: Date.now(),
+      },
+      selectedClipId: rightClip.id,
+    }));
+  },
+
+  updateTrack: (trackId, updates) =>
+    set((state) => ({
+      project: {
+        ...state.project,
+        tracks: state.project.tracks.map((t) =>
+          t.id === trackId ? { ...t, ...updates } : t
+        ),
+        updatedAt: Date.now(),
+      },
     })),
 
   addVibeMessage: (message) =>

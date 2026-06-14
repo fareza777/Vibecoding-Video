@@ -8,18 +8,20 @@ AI-powered video editor dengan fokus **Vibecoding** — edit video menggunakan b
 
 ## Fitur
 
-### Fase 1 ✅ (Saat ini)
+### Fase 1 ✅
 - **Shell UI profesional** — layout editor lengkap (media panel, preview, timeline, vibecoding panel)
 - **Media import** — drag & drop video, audio, gambar
 - **Live preview** — pemutar video dengan kontrol playback
 - **Multi-track timeline** — video, audio, text, effects tracks
 - **Vibecoding panel** — edit dengan perintah bahasa natural (ID/EN)
 
-### Fase 2 (Berikutnya)
-- Drag & resize clip di timeline
-- Snap-to-grid & ripple edit
-- Waveform audio visualization
-- Keyboard shortcuts
+### Fase 2 ✅ (Saat ini)
+- **Drag & resize clip** — geser clip, resize kiri/kanan, pindah antar track
+- **Snap-to-grid** — toggle snap (tombol Snap / tombol N)
+- **Waveform visualization** — waveform otomatis untuk audio & video
+- **Keyboard shortcuts** — Space, S, Del, J/K/L, Ctrl+Z/Y, panah
+- **Undo/Redo** — riwayat editing hingga 50 langkah
+- **Split clip** — belah clip di playhead (S)
 
 ### Fase 3 (Berikutnya)
 - Integrasi Claude API untuk editing AI canggih

@@ -13,6 +13,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { generateWaveform } from "@/lib/waveform";
 import { cn, formatDuration } from "@/lib/utils";
 import { useEditorStore } from "@/store/editor-store";
 import type { MediaAsset, MediaType, PanelId } from "@/types/editor";
@@ -65,6 +66,7 @@ export function MediaPanel() {
   const setActivePanel = useEditorStore((s) => s.setActivePanel);
   const assets = useEditorStore((s) => s.project.assets);
   const addAsset = useEditorStore((s) => s.addAsset);
+  const updateAsset = useEditorStore((s) => s.updateAsset);
   const removeAsset = useEditorStore((s) => s.removeAsset);
   const addClip = useEditorStore((s) => s.addClip);
   const playhead = useEditorStore((s) => s.project.playhead);
@@ -93,9 +95,15 @@ export function MediaPanel() {
         };
 
         addAsset(asset);
+
+        if (type === "video" || type === "audio") {
+          generateWaveform(url).then((waveform) => {
+            updateAsset(asset.id, { waveform });
+          });
+        }
       }
     },
-    [addAsset]
+    [addAsset, updateAsset]
   );
 
   const handleDrop = useCallback(

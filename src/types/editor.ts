@@ -9,6 +9,7 @@ export interface MediaAsset {
   width?: number;
   height?: number;
   thumbnail?: string;
+  waveform?: number[];
   size: number;
   createdAt: number;
 }
@@ -90,6 +91,11 @@ export interface EditorProject {
   clips: TimelineClip[];
   playhead: number;
   zoom: number;
+}
+
+export interface HistoryEntry {
+  clips: TimelineClip[];
+  selectedClipId: string | null;
 }
 
 export type PanelId = "media" | "effects" | "text" | "audio";
