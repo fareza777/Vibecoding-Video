@@ -228,7 +228,7 @@ export function parseVibecodingCommand(input: string): ParsedCommand {
 
   return {
     actions: [],
-    response: `Saya memahami permintaan Anda: "${trimmed}"\n\nCoba perintah seperti:\n• *Potong 0:30 sampai 1:15*\n• *Tambahkan fade in*\n• *Percepat 2x*\n• *Tambahkan teks "Hello World"*\n• *Split di 0:45*\n\nAtau hubungkan API key Claude di **Settings** untuk editing AI yang lebih canggih.`,
+    response: `Saya memahami permintaan Anda: "${trimmed}"\n\nCoba perintah seperti:\n• *Potong 0:30 sampai 1:15*\n• *Tambahkan fade in*\n• *Percepat 2x*\n• *Tambahkan teks "Hello World"*\n• *Split di 0:45*\n\nAtau hubungkan API key MiniMax di **Settings** untuk editing AI yang lebih canggih.`,
   };
 }
 

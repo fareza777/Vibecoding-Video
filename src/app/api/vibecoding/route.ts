@@ -1,20 +1,14 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  VIBECODING_SYSTEM_PROMPT,
-  buildContextPrompt,
-  extractJsonFromText,
-} from "@/lib/vibecoding-prompt";
-import { vibeResponseSchema } from "@/lib/vibecoding-schema";
+import { callMiniMaxVibecoding } from "@/lib/minimax-client";
 import type { VibecodingContext } from "@/types/editor";
+
+const AI_MODELS = ["MiniMax-M3", "MiniMax-M2.5", "MiniMax-M2.1"] as const;
 
 const requestSchema = z.object({
   message: z.string().min(1).max(4000),
   context: z.custom<VibecodingContext>(),
-  model: z
-    .enum(["claude-sonnet-4-6", "claude-haiku-4-5-20251001", "claude-opus-4-6"])
-    .default("claude-sonnet-4-6"),
+  model: z.enum(AI_MODELS).default("MiniMax-M3"),
   apiKey: z.string().optional(),
   history: z
     .array(
@@ -40,85 +34,45 @@ export async function POST(req: Request) {
     }
 
     const { message, context, model, apiKey, history } = parsed.data;
-    const resolvedKey = apiKey || process.env.ANTHROPIC_API_KEY;
+    const resolvedKey = apiKey || process.env.MINIMAX_API_KEY;
 
     if (!resolvedKey) {
       return NextResponse.json(
         {
           error: "no_api_key",
           message:
-            "API key tidak ditemukan. Set ANTHROPIC_API_KEY di .env.local atau masukkan di Settings.",
+            "API key tidak ditemukan. Set MINIMAX_API_KEY di .env.local atau masukkan di Settings.",
         },
         { status: 401 }
       );
     }
 
-    const client = new Anthropic({ apiKey: resolvedKey });
-
-    const contextBlock = buildContextPrompt(context);
-    const historyMessages = (history ?? []).map((h) => ({
-      role: h.role as "user" | "assistant",
-      content: h.content,
-    }));
-
-    const response = await client.messages.create({
+    const result = await callMiniMaxVibecoding({
+      apiKey: resolvedKey,
       model,
-      max_tokens: 2048,
-      system: VIBECODING_SYSTEM_PROMPT,
-      messages: [
-        ...historyMessages,
-        {
-          role: "user",
-          content: `${contextBlock}\n\n## User request\n${message}`,
-        },
-      ],
+      message,
+      context,
+      history,
     });
 
-    const textBlock = response.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      return NextResponse.json(
-        { error: "empty_response", message: "Claude returned no text." },
-        { status: 502 }
-      );
-    }
-
-    const jsonText = extractJsonFromText(textBlock.text);
-    const jsonParsed = JSON.parse(jsonText);
-    const validated = vibeResponseSchema.safeParse(jsonParsed);
-
-    if (!validated.success) {
-      return NextResponse.json(
-        {
-          error: "invalid_ai_response",
-          message: "AI response tidak valid. Coba lagi.",
-          raw: textBlock.text.slice(0, 500),
-        },
-        { status: 502 }
-      );
-    }
-
     return NextResponse.json({
-      message: validated.data.message,
-      actions: validated.data.actions.map((a) => ({
-        type: a.type,
-        description: a.description,
-        params: a.params,
-      })),
-      source: "claude" as const,
-      usage: {
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
-      },
+      message: result.message,
+      actions: result.actions,
+      source: "minimax" as const,
+      usage: result.usage,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    const isAuth = message.includes("401") || message.toLowerCase().includes("api key");
+    const isAuth =
+      message.includes("401") ||
+      message.toLowerCase().includes("api key") ||
+      message.toLowerCase().includes("unauthorized");
 
     return NextResponse.json(
       {
         error: isAuth ? "auth_failed" : "server_error",
         message: isAuth
-          ? "API key tidak valid. Periksa Settings atau .env.local."
+          ? "API key MiniMax tidak valid. Periksa Settings atau .env.local."
           : `Gagal memproses: ${message}`,
       },
       { status: isAuth ? 401 : 500 }

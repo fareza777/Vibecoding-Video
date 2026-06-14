@@ -144,7 +144,10 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
     sendMessage(input);
   };
 
-  const modeLabel = aiSettings.enabled && aiConnected ? "Claude AI" : "Local";
+  const modeLabel =
+    aiSettings.enabled && aiConnected
+      ? aiSettings.model.replace("MiniMax-", "")
+      : "Local";
 
   return (
     <aside className="flex flex-col border-l border-border bg-surface w-[360px] shrink-0">
@@ -244,7 +247,7 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
               </div>
               <div className="bg-muted/60 rounded-xl px-3 py-2 text-xs text-muted-foreground">
                 {aiSettings.enabled && aiConnected
-                  ? "Claude menganalisis timeline & perintah..."
+                  ? "MiniMax menganalisis timeline & perintah..."
                   : "Menganalisis perintah editing..."}
               </div>
             </div>

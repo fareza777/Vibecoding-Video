@@ -57,6 +57,10 @@ ${context.clips.length === 0 ? "(empty timeline)" : context.clips.map((c) => `- 
 ${context.assets.length === 0 ? "(no media imported)" : context.assets.map((a) => `- [${a.id}] ${a.name} (${a.type}, ${a.duration.toFixed(1)}s)`).join("\n")}`;
 }
 
+export function stripThinkingContent(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
 export function extractJsonFromText(text: string): string {
   const trimmed = text.trim();
   const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);

@@ -15,9 +15,10 @@ import { useEditorStore } from "@/store/editor-store";
 
 interface HeaderProps {
   onOpenSettings?: () => void;
+  onOpenExport?: () => void;
 }
 
-export function Header({ onOpenSettings }: HeaderProps) {
+export function Header({ onOpenSettings, onOpenExport }: HeaderProps) {
   const projectName = useEditorStore((s) => s.project.name);
   const setProjectName = useEditorStore((s) => s.setProjectName);
   const undo = useEditorStore((s) => s.undo);
@@ -87,7 +88,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
           <Sparkles className="h-3.5 w-3.5 text-accent-glow" />
           Vibe Assist
         </Button>
-        <Button variant="default" size="sm">
+        <Button variant="default" size="sm" onClick={onOpenExport}>
           <Download className="h-3.5 w-3.5" />
           Export
         </Button>

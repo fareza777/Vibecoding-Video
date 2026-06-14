@@ -107,13 +107,13 @@ export interface ExportSettings {
   fps: 24 | 30 | 60;
 }
 
-export type AiModel = "claude-sonnet-4-6" | "claude-haiku-4-5-20251001" | "claude-opus-4-6";
+export type AiModel = "MiniMax-M3" | "MiniMax-M2.5" | "MiniMax-M2.1";
 
 export interface AiSettings {
   enabled: boolean;
   apiKey: string;
   model: AiModel;
-  useStreaming: boolean;
+  provider: "minimax";
 }
 
 export interface VibecodingContext {
@@ -146,5 +146,5 @@ export interface VibecodingApiResponse {
     description: string;
     params: Record<string, unknown>;
   }>;
-  source: "claude" | "local";
+  source: "minimax" | "local";
 }

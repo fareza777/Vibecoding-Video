@@ -10,8 +10,10 @@ import {
   Volume2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { computeClipVisualStyle } from "@/lib/effects-engine";
 import { formatTime } from "@/lib/utils";
 import { useEditorStore } from "@/store/editor-store";
+import { PreviewCompositor } from "./PreviewCompositor";
 
 export function PreviewPanel() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -32,6 +34,10 @@ export function PreviewPanel() {
     ? assets.find((a) => a.id === activeClip.assetId)
     : null;
 
+  const visualStyle = activeClip
+    ? computeClipVisualStyle(activeClip, playhead)
+    : null;
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !activeAsset || activeAsset.type !== "video") return;
@@ -40,11 +46,16 @@ export function PreviewPanel() {
       video.src = activeAsset.url;
     }
 
-    const clipTime = playhead - (activeClip?.startTime ?? 0) + (activeClip?.trimStart ?? 0);
+    const clipTime =
+      playhead - (activeClip?.startTime ?? 0) + (activeClip?.trimStart ?? 0);
     if (Math.abs(video.currentTime - clipTime) > 0.1) {
       video.currentTime = clipTime;
     }
-  }, [playhead, activeAsset, activeClip]);
+
+    if (visualStyle) {
+      video.playbackRate = visualStyle.playbackRate;
+    }
+  }, [playhead, activeAsset, activeClip, visualStyle]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -61,14 +72,16 @@ export function PreviewPanel() {
     const video = videoRef.current;
     if (!video || !activeClip || !isPlaying) return;
 
+    const rate = visualStyle?.playbackRate ?? 1;
     const newPlayhead =
-      activeClip.startTime + video.currentTime - activeClip.trimStart;
+      activeClip.startTime +
+      (video.currentTime - activeClip.trimStart) * rate;
     setPlayhead(newPlayhead);
 
     if (newPlayhead >= activeClip.startTime + activeClip.duration) {
       setIsPlaying(false);
     }
-  }, [activeClip, isPlaying, setPlayhead, setIsPlaying]);
+  }, [activeClip, isPlaying, setPlayhead, setIsPlaying, visualStyle]);
 
   const togglePlay = () => setIsPlaying(!isPlaying);
 
@@ -89,6 +102,11 @@ export function PreviewPanel() {
               {activeClip.label}
             </span>
           )}
+          {activeClip && activeClip.effects.length > 0 && (
+            <span className="px-2 py-0.5 rounded bg-track-effect/20 text-track-effect text-[10px]">
+              {activeClip.effects.length} FX
+            </span>
+          )}
         </div>
         <Button variant="ghost" size="icon-sm" title="Fullscreen">
           <Maximize2 className="h-3.5 w-3.5" />
@@ -96,33 +114,15 @@ export function PreviewPanel() {
       </div>
 
       <div className="flex-1 flex items-center justify-center preview-grid bg-[#080810] relative overflow-hidden">
-        {activeAsset?.type === "video" ? (
-          <video
-            ref={videoRef}
-            className="max-h-full max-w-full object-contain shadow-2xl"
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={() => setIsPlaying(false)}
-          />
-        ) : activeAsset?.type === "image" ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={activeAsset.url}
-            alt={activeAsset.name}
-            className="max-h-full max-w-full object-contain shadow-2xl"
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-4 text-muted-foreground">
-            <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-border flex items-center justify-center">
-              <Play className="h-10 w-10 opacity-30" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium">Preview Area</p>
-              <p className="text-xs mt-1 opacity-60">
-                Import media & add to timeline to preview
-              </p>
-            </div>
-          </div>
-        )}
+        <PreviewCompositor
+          activeClip={activeClip}
+          activeAsset={activeAsset}
+          allClips={clips}
+          playhead={playhead}
+          videoRef={videoRef}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={() => setIsPlaying(false)}
+        />
 
         <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-mono text-white/80">
           PREVIEW

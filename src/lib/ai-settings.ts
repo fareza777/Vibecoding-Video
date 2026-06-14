@@ -1,12 +1,12 @@
-import type { AiSettings } from "@/types/editor";
+import type { AiModel, AiSettings } from "@/types/editor";
 
 const STORAGE_KEY = "vibecoding-ai-settings";
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
   enabled: true,
   apiKey: "",
-  model: "claude-sonnet-4-6",
-  useStreaming: false,
+  model: "MiniMax-M3",
+  provider: "minimax",
 };
 
 export function loadAiSettings(): AiSettings {
@@ -14,17 +14,26 @@ export function loadAiSettings(): AiSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_AI_SETTINGS;
-    return { ...DEFAULT_AI_SETTINGS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw) as Partial<AiSettings>;
+    return {
+      ...DEFAULT_AI_SETTINGS,
+      ...parsed,
+      provider: "minimax",
+      model: isValidModel(parsed.model) ? parsed.model : "MiniMax-M3",
+    };
   } catch {
     return DEFAULT_AI_SETTINGS;
   }
 }
 
-export function saveAiSettings(settings: AiSettings): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+function isValidModel(model?: string): model is AiModel {
+  return model === "MiniMax-M3" || model === "MiniMax-M2.5" || model === "MiniMax-M2.1";
 }
 
-export function hasAiConfigured(settings: AiSettings): boolean {
-  return Boolean(settings.apiKey || process.env.NEXT_PUBLIC_HAS_SERVER_KEY);
+export function saveAiSettings(settings: AiSettings): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({ ...settings, provider: "minimax" })
+  );
 }

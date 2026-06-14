@@ -18,9 +18,9 @@ interface SettingsDialogProps {
 }
 
 const MODELS: { id: AiModel; label: string; desc: string }[] = [
-  { id: "claude-sonnet-4-6", label: "Sonnet 4.6", desc: "Balanced — recommended" },
-  { id: "claude-haiku-4-5-20251001", label: "Haiku 4.5", desc: "Fast & economical" },
-  { id: "claude-opus-4-6", label: "Opus 4.6", desc: "Most capable" },
+  { id: "MiniMax-M3", label: "MiniMax M3", desc: "Coding/Agentic SOTA — recommended" },
+  { id: "MiniMax-M2.5", label: "MiniMax M2.5", desc: "Balanced performance" },
+  { id: "MiniMax-M2.1", label: "MiniMax M2.1", desc: "Fast & economical" },
 ];
 
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
@@ -70,11 +70,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           <div className="p-5 space-y-5">
             <section className="space-y-3">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Vibecoding AI
+                Vibecoding AI — MiniMax
               </h3>
 
               <label className="flex items-center justify-between">
-                <span className="text-xs">Enable Claude AI</span>
+                <span className="text-xs">Enable MiniMax AI</span>
                 <button
                   onClick={() => update({ enabled: !settings.enabled })}
                   className={cn(
@@ -111,14 +111,14 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <section className="space-y-2">
               <label className="text-xs text-muted-foreground flex items-center gap-1">
                 <Key className="h-3 w-3" />
-                Anthropic API Key
+                MiniMax API Key
               </label>
               <div className="relative">
                 <input
                   type={showKey ? "text" : "password"}
                   value={settings.apiKey}
                   onChange={(e) => update({ apiKey: e.target.value })}
-                  placeholder="sk-ant-..."
+                  placeholder="MiniMax API key..."
                   className="w-full h-9 px-3 pr-9 text-xs bg-muted rounded-lg outline-none focus:ring-1 focus:ring-accent font-mono"
                 />
                 <button
@@ -135,7 +135,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
               </div>
               <p className="text-[10px] text-muted-foreground">
                 Disimpan lokal di browser. Atau set{" "}
-                <code className="px-1 py-0.5 rounded bg-muted">ANTHROPIC_API_KEY</code>{" "}
+                <code className="px-1 py-0.5 rounded bg-muted">MINIMAX_API_KEY</code>{" "}
                 di .env.local
               </p>
             </section>

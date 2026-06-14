@@ -35,8 +35,8 @@ export async function requestVibecoding(
         message: appendNote(
           local.message,
           local.actions.length > 0
-            ? "_Claude tidak terhubung — hasil dari parser lokal._"
-            : "⚠️ Hubungkan API key di **Settings** atau set `ANTHROPIC_API_KEY` di .env.local"
+            ? "_MiniMax tidak terhubung — hasil dari parser lokal._"
+            : "⚠️ Hubungkan API key di **Settings** atau set `MINIMAX_API_KEY` di .env.local"
         ),
       };
     }
@@ -68,7 +68,7 @@ export async function requestVibecoding(
           params: a.params,
         })
       ),
-      source: "claude",
+      source: "minimax",
     };
   } catch {
     const local = toLocalResponse(req.message);

@@ -23,21 +23,21 @@ AI-powered video editor dengan fokus **Vibecoding** — edit video menggunakan b
 - **Undo/Redo** — riwayat editing hingga 50 langkah
 - **Split clip** — belah clip di playhead (S)
 
-### Fase 3 ✅ (Saat ini)
-- **Claude API integration** — `/api/vibecoding` dengan Sonnet/Haiku/Opus
-- **Context-aware editing** — AI menerima state timeline lengkap
+### Fase 3 ✅
+- **AI Vibecoding** — context-aware editing dengan state timeline lengkap
 - **Settings panel** — API key, model selection, enable/disable AI
-- **Structured actions** — JSON actions dari Claude → diterapkan ke timeline
+- **Structured actions** — JSON actions → diterapkan ke timeline
 - **Fallback lokal** — parser regex jika API tidak tersedia
 
-### Fase 4 (Berikutnya)
-- FFmpeg.wasm untuk processing di browser
-- Effects engine (blur, color grade, transitions)
-- Text overlay renderer
+### Fase 4 ✅ (Saat ini)
+- **MiniMax provider** — model default `MiniMax-M3` via OpenAI-compatible API
+- **Effects engine** — fade, blur, brightness, contrast, saturation, zoom, speed di preview
+- **Text overlay renderer** — teks tampil real-time di preview
+- **FFmpeg.wasm export** — export MP4/WebM/MOV langsung dari browser
 
 ### Fase 5 (Berikutnya)
-- Export MP4/WebM
 - Project save/load (JSON)
+- Full timeline render dengan effects baked-in
 - Cloud sync
 
 ## Vibecoding Commands
@@ -71,16 +71,18 @@ npm run typecheck
 
 Buka [http://localhost:3000](http://localhost:3000)
 
-### AI Setup (Vibecoding)
+### AI Setup (MiniMax Vibecoding)
 
 ```bash
 # Copy dan isi API key
 cp .env.example .env.local
+# MINIMAX_API_KEY=your-key
 ```
 
 Atau masukkan API key di **Settings** (disimpan lokal di browser).
 
-Dapatkan key di [console.anthropic.com](https://console.anthropic.com/)
+- Provider: [MiniMax](https://platform.minimax.io/)
+- Model default: **MiniMax-M3**
 
 ## Tech Stack
 
