@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Film,
   ImageIcon,
@@ -145,6 +145,16 @@ export function MediaPanel() {
 
   const selectedAsset = assets.find((a) => a.id === selectedAssetId) ?? null;
 
+  useEffect(() => {
+    if (assets.length === 0) {
+      setSelectedAssetId(null);
+      return;
+    }
+    if (!selectedAssetId || !assets.some((a) => a.id === selectedAssetId)) {
+      setSelectedAssetId(assets[0].id);
+    }
+  }, [assets, selectedAssetId]);
+
   const filteredAssets = assets.filter((a) =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -206,7 +216,7 @@ export function MediaPanel() {
   );
 
   return (
-    <aside className="flex flex-col border-r border-border bg-surface w-[300px] shrink-0 min-h-0">
+    <aside className="flex flex-col h-full border-r border-border bg-surface w-[300px] shrink-0 min-h-0">
       <div className="flex border-b border-border shrink-0">
         {PANEL_TABS.map((tab) => (
           <button
@@ -262,26 +272,14 @@ export function MediaPanel() {
               {importing ? "Importing..." : "Import Media"}
             </Button>
 
-            {selectedAsset && (
-              <Button
-                variant="destructive"
-                size="sm"
-                className="w-full"
-                onClick={() => handleRemoveAsset(selectedAsset.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Hapus &ldquo;{selectedAsset.name.slice(0, 18)}
-                {selectedAsset.name.length > 18 ? "…" : ""}&rdquo;
-              </Button>
-            )}
           </div>
 
-          <ScrollArea className="flex-1 min-h-0">
-            <div
-              className="px-3 pb-3 pt-2 space-y-2"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
+          <div
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+          >
+            <div className="px-3 pb-3 pt-2 space-y-2">
               {panelHint && (
                 <p className="text-[10px] text-cyan bg-cyan/10 border border-cyan/20 rounded-lg px-2 py-1.5">
                   {panelHint}
@@ -309,13 +307,26 @@ export function MediaPanel() {
                     <div
                       key={asset.id}
                       className={cn(
-                        "rounded-lg border p-2 transition-colors cursor-pointer",
+                        "relative rounded-lg border p-2 pr-10 transition-colors cursor-pointer",
                         isSelected
                           ? "border-cyan/50 bg-cyan/5 ring-1 ring-cyan/20"
                           : "border-border/60 bg-muted/40 hover:bg-muted/60"
                       )}
                       onClick={() => setSelectedAssetId(asset.id)}
                     >
+                      <button
+                        type="button"
+                        title={`Hapus ${asset.name}`}
+                        aria-label={`Hapus ${asset.name}`}
+                        className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white shadow-md hover:bg-red-500 hover:scale-105 transition-all z-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveAsset(asset.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+
                       <div className="flex items-center gap-2">
                         <div
                           className={cn(
@@ -330,7 +341,7 @@ export function MediaPanel() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{asset.name}</p>
+                          <p className="text-xs font-medium truncate pr-1">{asset.name}</p>
                           <p className="text-[10px] text-muted-foreground">
                             {isLoading || asset.duration <= 0
                               ? "Memuat..."
@@ -344,7 +355,7 @@ export function MediaPanel() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="flex-1 h-7 text-[10px]"
+                          className="flex-1 h-8 text-[10px]"
                           onClick={(e) => {
                             e.stopPropagation();
                             addToTimeline(asset);
@@ -356,7 +367,7 @@ export function MediaPanel() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          className="flex-1 h-7 text-[10px]"
+                          className="flex-1 h-8 text-[10px] font-semibold"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRemoveAsset(asset.id);
@@ -371,7 +382,25 @@ export function MediaPanel() {
                 })
               )}
             </div>
-          </ScrollArea>
+          </div>
+
+          <div className="shrink-0 border-t border-border bg-surface-elevated/80 p-3 space-y-1.5">
+            {selectedAsset ? (
+              <Button
+                variant="destructive"
+                size="lg"
+                className="w-full h-10 text-sm font-semibold shadow-lg shadow-red-900/30"
+                onClick={() => handleRemoveAsset(selectedAsset.id)}
+              >
+                <Trash2 className="h-5 w-5" />
+                Hapus Media Terpilih
+              </Button>
+            ) : assets.length > 0 ? (
+              <p className="text-[10px] text-center text-muted-foreground">
+                Klik kartu media — tombol hapus merah di pojok kanan atas setiap file
+              </p>
+            ) : null}
+          </div>
         </>
       )}
 

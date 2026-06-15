@@ -108,14 +108,15 @@ export function TimelinePanel() {
             <Copy className="h-3 w-3" />
           </Button>
           <Button
-            variant="ghost"
+            variant="destructive"
             size="sm"
-            className="h-6 px-2 text-[10px] text-red-400 hover:text-red-300"
+            className="h-7 px-2.5 text-[10px] font-semibold"
             disabled={!selectedClipId}
             onClick={() => selectedClipId && removeClip(selectedClipId)}
             title="Hapus clip (Del)"
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-3.5 w-3.5" />
+            Hapus
           </Button>
           <div className="w-px h-4 bg-border mx-1" />
           <Button
