@@ -6,7 +6,6 @@ import {
   ImageIcon,
   Loader2,
   Music,
-  Plus,
   Search,
   Trash2,
   Upload,
@@ -142,8 +141,6 @@ export function MediaPanel() {
     },
     [markLoading, removeAsset]
   );
-
-  const selectedAsset = assets.find((a) => a.id === selectedAssetId) ?? null;
 
   useEffect(() => {
     if (assets.length === 0) {
@@ -307,27 +304,16 @@ export function MediaPanel() {
                     <div
                       key={asset.id}
                       className={cn(
-                        "relative rounded-lg border p-2 pr-10 transition-colors cursor-pointer",
+                        "rounded-lg border p-2 transition-colors cursor-pointer",
                         isSelected
                           ? "border-cyan/50 bg-cyan/5 ring-1 ring-cyan/20"
                           : "border-border/60 bg-muted/40 hover:bg-muted/60"
                       )}
                       onClick={() => setSelectedAssetId(asset.id)}
+                      onDoubleClick={() => addToTimeline(asset)}
+                      title="Double-click untuk tambah ke timeline"
                     >
-                      <button
-                        type="button"
-                        title={`Hapus ${asset.name}`}
-                        aria-label={`Hapus ${asset.name}`}
-                        className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-white shadow-md hover:bg-red-500 hover:scale-105 transition-all z-10"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveAsset(asset.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-2">
                         <div
                           className={cn(
                             "flex h-9 w-9 items-center justify-center rounded-md bg-surface-elevated shrink-0",
@@ -341,65 +327,32 @@ export function MediaPanel() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate pr-1">{asset.name}</p>
+                          <p className="text-xs font-medium truncate">{asset.name}</p>
                           <p className="text-[10px] text-muted-foreground">
                             {isLoading || asset.duration <= 0
                               ? "Memuat..."
                               : `${formatDuration(asset.duration)} · ${(asset.size / 1024 / 1024).toFixed(1)} MB`}
                             {onTimeline ? " · timeline" : ""}
                           </p>
+                          <button
+                            type="button"
+                            title={`Hapus ${asset.name}`}
+                            aria-label={`Hapus ${asset.name}`}
+                            className="mt-1.5 p-1 rounded-md text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveAsset(asset.id);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
-                      </div>
-
-                      <div className="flex gap-1.5 mt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 h-8 text-[10px]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addToTimeline(asset);
-                          }}
-                        >
-                          <Plus className="h-3 w-3" />
-                          Timeline
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="flex-1 h-8 text-[10px] font-semibold"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveAsset(asset.id);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Hapus
-                        </Button>
                       </div>
                     </div>
                   );
                 })
               )}
             </div>
-          </div>
-
-          <div className="shrink-0 border-t border-border bg-surface-elevated/80 p-3 space-y-1.5">
-            {selectedAsset ? (
-              <Button
-                variant="destructive"
-                size="lg"
-                className="w-full h-10 text-sm font-semibold shadow-lg shadow-red-900/30"
-                onClick={() => handleRemoveAsset(selectedAsset.id)}
-              >
-                <Trash2 className="h-5 w-5" />
-                Hapus Media Terpilih
-              </Button>
-            ) : assets.length > 0 ? (
-              <p className="text-[10px] text-center text-muted-foreground">
-                Klik kartu media — tombol hapus merah di pojok kanan atas setiap file
-              </p>
-            ) : null}
           </div>
         </>
       )}
