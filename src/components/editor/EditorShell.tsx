@@ -13,6 +13,7 @@ import { CollaborationBar } from "./CollaborationBar";
 import { Header } from "./Header";
 import { MediaPanel } from "./MediaPanel";
 import { OpenProjectDialog } from "./OpenProjectDialog";
+import { ClipInspector } from "./ClipInspector";
 import { PreviewPanel } from "./PreviewPanel";
 import { ExportDialog } from "./ExportDialog";
 import { SettingsDialog } from "./SettingsDialog";
@@ -87,6 +88,7 @@ export function EditorShell() {
         <MediaPanel />
         <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
           <PreviewPanel />
+          <ClipInspector />
           <TimelinePanel />
         </div>
         <VibecodingPanel onOpenSettings={() => setSettingsOpen(true)} />

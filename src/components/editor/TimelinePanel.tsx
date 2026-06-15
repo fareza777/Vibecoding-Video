@@ -2,12 +2,15 @@
 
 import { useCallback, useRef } from "react";
 import {
+  Copy,
   Lock,
   Magnet,
   Minus,
   Plus,
   Eye,
   EyeOff,
+  Scissors,
+  Trash2,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -40,6 +43,9 @@ export function TimelinePanel() {
   const snapEnabled = useEditorStore((s) => s.snapEnabled);
   const toggleSnap = useEditorStore((s) => s.toggleSnap);
   const updateTrack = useEditorStore((s) => s.updateTrack);
+  const removeClip = useEditorStore((s) => s.removeClip);
+  const duplicateClip = useEditorStore((s) => s.duplicateClip);
+  const splitClipAtPlayhead = useEditorStore((s) => s.splitClipAtPlayhead);
 
   const pps = PIXELS_PER_SECOND * zoom;
   const totalWidth = duration * pps;
@@ -81,6 +87,37 @@ export function TimelinePanel() {
           </Button>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={!selectedClipId}
+            onClick={() => selectedClipId && splitClipAtPlayhead()}
+            title="Split (S)"
+          >
+            <Scissors className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={!selectedClipId}
+            onClick={() => selectedClipId && duplicateClip(selectedClipId)}
+            title="Duplikat clip"
+          >
+            <Copy className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px] text-red-400 hover:text-red-300"
+            disabled={!selectedClipId}
+            onClick={() => selectedClipId && removeClip(selectedClipId)}
+            title="Hapus clip (Del)"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+          <div className="w-px h-4 bg-border mx-1" />
           <Button
             variant="ghost"
             size="icon-sm"

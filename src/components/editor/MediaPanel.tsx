@@ -104,6 +104,7 @@ export function MediaPanel() {
   const [loadingAssets, setLoadingAssets] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [panelHint, setPanelHint] = useState<string | null>(null);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
   const activePanel = useEditorStore((s) => s.activePanel);
   const setActivePanel = useEditorStore((s) => s.setActivePanel);
@@ -137,9 +138,12 @@ export function MediaPanel() {
     (assetId: string) => {
       markLoading(assetId, false);
       removeAsset(assetId);
+      setSelectedAssetId((prev) => (prev === assetId ? null : prev));
     },
     [markLoading, removeAsset]
   );
+
+  const selectedAsset = assets.find((a) => a.id === selectedAssetId) ?? null;
 
   const filteredAssets = assets.filter((a) =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -170,6 +174,7 @@ export function MediaPanel() {
         addAsset(asset);
         markLoading(assetId, true);
         addToTimeline(asset);
+        setSelectedAssetId(assetId);
 
         void processImportedMedia(projectId, assetId, file, url, type, {
           onProbeComplete: (id, data) => {
@@ -189,13 +194,7 @@ export function MediaPanel() {
 
       void yieldToMain();
     },
-    [
-      addAsset,
-      addToTimeline,
-      finalizeAssetImport,
-      markLoading,
-      projectId,
-    ]
+    [addAsset, addToTimeline, finalizeAssetImport, markLoading, projectId]
   );
 
   const handleDrop = useCallback(
@@ -207,8 +206,8 @@ export function MediaPanel() {
   );
 
   return (
-    <aside className="flex flex-col border-r border-border bg-surface w-[280px] shrink-0">
-      <div className="flex border-b border-border">
+    <aside className="flex flex-col border-r border-border bg-surface w-[300px] shrink-0 min-h-0">
+      <div className="flex border-b border-border shrink-0">
         {PANEL_TABS.map((tab) => (
           <button
             key={tab.id}
@@ -228,11 +227,11 @@ export function MediaPanel() {
 
       {activePanel === "media" && (
         <>
-          <div className="p-3 space-y-2">
+          <div className="p-3 space-y-2 shrink-0 border-b border-border/50">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
-                placeholder="Search media..."
+                placeholder="Cari media..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-8 pl-8 pr-3 text-xs bg-muted rounded-lg outline-none focus:ring-1 focus:ring-accent"
@@ -262,11 +261,24 @@ export function MediaPanel() {
               )}
               {importing ? "Importing..." : "Import Media"}
             </Button>
+
+            {selectedAsset && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="w-full"
+                onClick={() => handleRemoveAsset(selectedAsset.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Hapus &ldquo;{selectedAsset.name.slice(0, 18)}
+                {selectedAsset.name.length > 18 ? "…" : ""}&rdquo;
+              </Button>
+            )}
           </div>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0">
             <div
-              className="px-3 pb-3 space-y-2 min-h-[120px]"
+              className="px-3 pb-3 pt-2 space-y-2"
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
@@ -283,10 +295,7 @@ export function MediaPanel() {
                 >
                   <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                   <p className="text-xs text-muted-foreground">
-                    Drop files here or click to import
-                  </p>
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">
-                    MP4, MOV, MP3, WAV, JPG, PNG
+                    Drop file atau klik untuk import
                   </p>
                 </div>
               ) : (
@@ -294,56 +303,67 @@ export function MediaPanel() {
                   const Icon = TYPE_ICONS[asset.type];
                   const isLoading = loadingAssets.has(asset.id);
                   const onTimeline = clips.some((c) => c.assetId === asset.id);
+                  const isSelected = selectedAssetId === asset.id;
 
                   return (
                     <div
                       key={asset.id}
-                      className="group flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
-                      onDoubleClick={() => addToTimeline(asset)}
+                      className={cn(
+                        "rounded-lg border p-2 transition-colors cursor-pointer",
+                        isSelected
+                          ? "border-cyan/50 bg-cyan/5 ring-1 ring-cyan/20"
+                          : "border-border/60 bg-muted/40 hover:bg-muted/60"
+                      )}
+                      onClick={() => setSelectedAssetId(asset.id)}
                     >
-                      <div
-                        className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-md bg-surface-elevated shrink-0 relative",
-                          TYPE_COLORS[asset.type]
-                        )}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Icon className="h-4 w-4" />
-                        )}
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={cn(
+                            "flex h-9 w-9 items-center justify-center rounded-md bg-surface-elevated shrink-0",
+                            TYPE_COLORS[asset.type]
+                          )}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Icon className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate">{asset.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {isLoading || asset.duration <= 0
+                              ? "Memuat..."
+                              : `${formatDuration(asset.duration)} · ${(asset.size / 1024 / 1024).toFixed(1)} MB`}
+                            {onTimeline ? " · timeline" : ""}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{asset.name}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {isLoading || asset.duration <= 0
-                            ? "Memuat metadata..."
-                            : `${formatDuration(asset.duration)} · ${(asset.size / 1024 / 1024).toFixed(1)} MB`}
-                          {onTimeline ? " · di timeline" : ""}
-                        </p>
-                      </div>
-                      <div className="flex gap-0.5 shrink-0">
+
+                      <div className="flex gap-1.5 mt-2">
                         <Button
-                          variant="ghost"
-                          size="icon-sm"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 h-7 text-[10px]"
                           onClick={(e) => {
                             e.stopPropagation();
                             addToTimeline(asset);
                           }}
-                          title="Add to timeline"
                         >
                           <Plus className="h-3 w-3" />
+                          Timeline
                         </Button>
                         <Button
-                          variant="ghost"
-                          size="icon-sm"
+                          variant="destructive"
+                          size="sm"
+                          className="flex-1 h-7 text-[10px]"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRemoveAsset(asset.id);
                           }}
-                          title="Hapus media"
                         >
-                          <Trash2 className="h-3 w-3 text-red-400" />
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Hapus
                         </Button>
                       </div>
                     </div>
@@ -355,9 +375,7 @@ export function MediaPanel() {
         </>
       )}
 
-      {activePanel === "effects" && (
-        <EffectsLibrary onHint={setPanelHint} />
-      )}
+      {activePanel === "effects" && <EffectsLibrary onHint={setPanelHint} />}
       {activePanel === "text" && <TextLibrary onHint={setPanelHint} />}
       {activePanel === "audio" && (
         <AudioLibrary
@@ -388,23 +406,23 @@ function EffectsLibrary({ onHint }: { onHint: (msg: string | null) => void }) {
     updateClip(clip.id, {
       effects: appendEffectToClip(clip, preset),
     });
-    onHint(`Efek "${preset.name}" ditambahkan ke ${clip.label}.`);
+    onHint(`"${preset.name}" → ${clip.label}`);
   };
 
   return (
-    <ScrollArea className="flex-1 p-3">
+    <ScrollArea className="flex-1 min-h-0 p-3">
       <p className="text-[10px] text-muted-foreground mb-2">
-        Klik efek → diterapkan ke clip terpilih
+        {selectedClipId ? "Klik efek untuk menambah ke clip terpilih" : "Pilih clip di timeline"}
       </p>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {EFFECT_PRESETS.map((fx) => (
           <button
-            key={fx.name}
+            key={`${fx.name}-${fx.type}`}
             type="button"
             onClick={() => applyEffect(fx)}
-            className="p-3 rounded-lg bg-muted/50 hover:bg-muted hover:border-cyan/30 border border-transparent text-xs font-medium transition-colors text-left"
+            className="p-2.5 rounded-lg bg-muted/50 hover:bg-muted hover:border-cyan/30 border border-transparent text-[11px] font-medium transition-colors text-left"
           >
-            <SparklesIcon className="h-4 w-4 text-track-effect mb-1.5" />
+            <SparklesIcon className="h-3.5 w-3.5 text-track-effect mb-1" />
             {fx.name}
           </button>
         ))}
@@ -417,24 +435,53 @@ function TextLibrary({ onHint }: { onHint: (msg: string | null) => void }) {
   const playhead = useEditorStore((s) => s.project.playhead);
   const addClip = useEditorStore((s) => s.addClip);
   const pushHistory = useEditorStore((s) => s.pushHistory);
+  const [customText, setCustomText] = useState("Teks Anda");
 
   const addText = (preset: (typeof TEXT_PRESETS)[number]) => {
     pushHistory();
     addClip(buildTextClip(preset, playhead));
-    onHint(`Teks "${preset.label}" ditambahkan di ${playhead.toFixed(1)}s.`);
+    onHint(`"${preset.label}" di ${playhead.toFixed(1)}s`);
+  };
+
+  const addCustom = () => {
+    if (!customText.trim()) return;
+    pushHistory();
+    addClip(
+      buildTextClip(
+        {
+          label: "Custom",
+          text: customText.trim(),
+          position: "center",
+          duration: 5,
+        },
+        playhead
+      )
+    );
+    onHint(`Teks custom ditambahkan.`);
   };
 
   return (
-    <ScrollArea className="flex-1 p-3 space-y-2">
-      <p className="text-[10px] text-muted-foreground mb-1">
-        Tambah teks di posisi playhead
-      </p>
+    <ScrollArea className="flex-1 min-h-0 p-3 space-y-2">
+      <p className="text-[10px] text-muted-foreground">Teks di posisi playhead</p>
+
+      <div className="flex gap-1">
+        <input
+          value={customText}
+          onChange={(e) => setCustomText(e.target.value)}
+          className="flex-1 h-8 px-2 text-xs bg-muted rounded-lg outline-none focus:ring-1 focus:ring-accent"
+          placeholder="Teks custom..."
+        />
+        <Button size="sm" className="h-8 text-[10px]" onClick={addCustom}>
+          Tambah
+        </Button>
+      </div>
+
       {TEXT_PRESETS.map((preset) => (
         <button
           key={preset.label}
           type="button"
           onClick={() => addText(preset)}
-          className="w-full p-3 rounded-lg bg-muted/50 hover:bg-muted hover:border-cyan/30 border border-transparent text-xs font-medium transition-colors text-left"
+          className="w-full p-2.5 rounded-lg bg-muted/50 hover:bg-muted hover:border-cyan/30 border border-transparent text-xs text-left"
         >
           <span className="text-track-text font-bold text-sm">{preset.label}</span>
           <p className="text-[10px] text-muted-foreground mt-0.5">{preset.text}</p>
@@ -451,33 +498,50 @@ function AudioLibrary({
   onImportClick: () => void;
   onHint: (msg: string | null) => void;
 }) {
-  const hints = [
-    "Import file MP3/WAV lewat tab Media",
-    "Audio otomatis masuk track Audio 1",
-    "Atur volume per clip di timeline",
-  ];
+  const selectedClipId = useEditorStore((s) => s.selectedClipId);
+  const clips = useEditorStore((s) => s.project.clips);
+  const updateClip = useEditorStore((s) => s.updateClip);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
+
+  const audioClip = clips.find((c) => c.id === selectedClipId);
 
   return (
-    <ScrollArea className="flex-1 p-3 space-y-2">
+    <ScrollArea className="flex-1 min-h-0 p-3 space-y-3">
       <Button variant="outline" size="sm" className="w-full" onClick={onImportClick}>
         <Upload className="h-3.5 w-3.5" />
-        Import Audio
+        Import Audio (MP3/WAV)
       </Button>
-      {hints.map((hint) => (
-        <div
-          key={hint}
-          className="w-full p-3 rounded-lg bg-muted/40 text-xs text-muted-foreground flex items-start gap-2"
-        >
-          <Music className="h-4 w-4 text-track-audio shrink-0 mt-0.5" />
-          {hint}
+
+      {audioClip && audioClip.trackId.startsWith("track-audio") && (
+        <div className="space-y-2 p-2 rounded-lg border border-border bg-muted/30">
+          <p className="text-[10px] text-muted-foreground">Volume clip audio terpilih</p>
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={0.05}
+            value={audioClip.volume}
+            onChange={(e) => {
+              pushHistory();
+              updateClip(audioClip.id, { volume: parseFloat(e.target.value) });
+            }}
+            className="w-full h-1 accent-accent"
+          />
+          <p className="text-[10px] font-mono text-center">
+            {Math.round(audioClip.volume * 100)}%
+          </p>
         </div>
-      ))}
+      )}
+
+      <p className="text-[10px] text-muted-foreground">
+        Audio track mixing aktif saat export (toggle di dialog Export).
+      </p>
       <button
         type="button"
         className="text-[10px] text-cyan hover:underline"
-        onClick={() => onHint("Gunakan tab Media untuk import audio asli.")}
+        onClick={() => onHint("Import file audio asli lewat tombol di atas.")}
       >
-        Bukan sample audio — import file Anda sendiri
+        Bukan sample — pakai file Anda sendiri
       </button>
     </ScrollArea>
   );

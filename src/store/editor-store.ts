@@ -82,6 +82,7 @@ interface EditorState {
   ) => void;
   updateClip: (clipId: string, updates: Partial<TimelineClip>, recordHistory?: boolean) => void;
   removeClip: (clipId: string, skipHistory?: boolean) => void;
+  duplicateClip: (clipId: string) => void;
   splitClipAtPlayhead: () => void;
   splitClipAtTime: (time: number, clipId?: string, skipHistory?: boolean) => void;
   updateTrack: (trackId: string, updates: Partial<TimelineTrack>) => void;
@@ -388,6 +389,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedClipId:
         state.selectedClipId === clipId ? null : state.selectedClipId,
     }));
+  },
+
+  duplicateClip: (clipId) => {
+    const state = get();
+    const clip = state.project.clips.find((c) => c.id === clipId);
+    if (!clip) return;
+
+    get().pushHistory();
+    const newId = uuidv4();
+    const duplicate: TimelineClip = {
+      ...clip,
+      id: newId,
+      startTime: clip.startTime + clip.duration,
+      label: `${clip.label} (copy)`,
+      effects: clip.effects.map((e) => ({ ...e, id: uuidv4() })),
+    };
+
+    set((s) => {
+      const clipEnd = duplicate.startTime + duplicate.duration;
+      return {
+        project: {
+          ...s.project,
+          clips: [...s.project.clips, duplicate],
+          duration: Math.max(s.project.duration, Math.ceil(clipEnd + 5)),
+          updatedAt: Date.now(),
+        },
+        selectedClipId: newId,
+      };
+    });
   },
 
   splitClipAtPlayhead: () => {
