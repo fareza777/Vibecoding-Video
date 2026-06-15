@@ -85,7 +85,7 @@ export function EditorShell() {
       />
       <div className="flex flex-1 min-h-0">
         <MediaPanel />
-        <div className="flex flex-1 flex-col min-w-0">
+        <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
           <PreviewPanel />
           <TimelinePanel />
         </div>

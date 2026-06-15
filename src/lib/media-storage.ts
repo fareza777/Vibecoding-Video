@@ -72,6 +72,21 @@ export async function getMediaBlob(
   });
 }
 
+export async function deleteMediaBlob(
+  projectId: string,
+  assetId: string
+): Promise<void> {
+  const db = await openDb();
+  const key = storageKey(projectId, assetId);
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function deleteProjectMedia(projectId: string): Promise<void> {
   const db = await openDb();
   const all = await listProjectBlobs(projectId);

@@ -31,7 +31,25 @@ interface ImportJob {
 }
 
 const importQueue: ImportJob[] = [];
+const cancelledImports = new Set<string>();
 let importRunning = false;
+
+export function cancelImportForAsset(assetId: string): void {
+  cancelledImports.add(assetId);
+  for (let i = importQueue.length - 1; i >= 0; i -= 1) {
+    if (importQueue[i]?.assetId === assetId) {
+      importQueue.splice(i, 1);
+    }
+  }
+}
+
+export function isImportCancelled(assetId: string): boolean {
+  return cancelledImports.has(assetId);
+}
+
+function clearCancelled(assetId: string): void {
+  cancelledImports.delete(assetId);
+}
 
 async function runImportQueue(): Promise<void> {
   if (importRunning) return;
@@ -50,7 +68,13 @@ async function runImportQueue(): Promise<void> {
 async function processImportedMediaJob(job: ImportJob): Promise<void> {
   const { projectId, assetId, file, url, type, callbacks } = job;
 
+  if (isImportCancelled(assetId)) {
+    clearCancelled(assetId);
+    return;
+  }
+
   deferHeavyWork(() => {
+    if (isImportCancelled(assetId)) return;
     void saveMediaBlob(projectId, assetId, file, file.name, file.type).catch(
       () => {}
     );
@@ -59,20 +83,30 @@ async function processImportedMediaJob(job: ImportJob): Promise<void> {
   try {
     if (type === "video" || type === "audio") {
       const probe = await probeMediaMetadata(url, type);
-      callbacks.onProbeComplete(assetId, probe);
+      if (!isImportCancelled(assetId)) {
+        callbacks.onProbeComplete(assetId, probe);
+      }
       await yieldToMain();
 
-      scheduleIdleTask(() => {
-        void (async () => {
-          const waveform = await generateWaveform(url, type);
-          callbacks.onWaveformComplete(assetId, waveform);
-        })();
-      });
-    } else {
+      if (!isImportCancelled(assetId)) {
+        scheduleIdleTask(() => {
+          void (async () => {
+            if (isImportCancelled(assetId)) return;
+            const waveform = await generateWaveform(url, type);
+            if (!isImportCancelled(assetId)) {
+              callbacks.onWaveformComplete(assetId, waveform);
+            }
+          })();
+        });
+      }
+    } else if (!isImportCancelled(assetId)) {
       callbacks.onProbeComplete(assetId, { duration: 5 });
     }
   } finally {
-    callbacks.onDone(assetId);
+    if (!isImportCancelled(assetId)) {
+      callbacks.onDone(assetId);
+    }
+    clearCancelled(assetId);
   }
 }
 

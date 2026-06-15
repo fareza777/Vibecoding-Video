@@ -146,4 +146,36 @@
   .editor-route {
     @apply h-screen w-screen overflow-hidden;
   }
+
+  .preview-viewport {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    isolation: isolate;
+    contain: layout style paint;
+  }
+
+  .preview-stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .preview-stage > * {
+    pointer-events: auto;
+  }
+
+  .preview-media {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
 }

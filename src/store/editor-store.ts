@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import { v4 as uuidv4 } from "uuid";
+import { cancelImportForAsset } from "@/lib/media-import";
+import { deleteMediaBlob } from "@/lib/media-storage";
 import {
   downloadProjectFile,
   persistProjectMedia,
@@ -240,15 +242,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     })),
 
   removeAsset: (assetId) => {
+    const state = get();
+    const asset = state.project.assets.find((a) => a.id === assetId);
+    if (asset?.url.startsWith("blob:")) {
+      URL.revokeObjectURL(asset.url);
+    }
+
+    cancelImportForAsset(assetId);
+    void deleteMediaBlob(state.project.id, assetId).catch(() => {});
+
+    const hadClip = state.project.clips.some((c) => c.assetId === assetId);
+
     get().pushHistory();
-    set((state) => ({
+    set({
       project: {
         ...state.project,
         assets: state.project.assets.filter((a) => a.id !== assetId),
         clips: state.project.clips.filter((c) => c.assetId !== assetId),
         updatedAt: Date.now(),
       },
-    }));
+      isPlaying: hadClip && state.isPlaying ? false : state.isPlaying,
+      selectedClipId: (() => {
+        const selected = state.project.clips.find(
+          (c) => c.id === state.selectedClipId
+        );
+        return selected?.assetId === assetId ? null : state.selectedClipId;
+      })(),
+    });
   },
 
   addClip: (clip, skipHistory = false) => {
@@ -297,6 +317,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   finalizeAssetImport: (assetId, data) =>
     set((state) => {
+      if (!state.project.assets.some((a) => a.id === assetId)) {
+        return state;
+      }
+
       const updatedAssets = state.project.assets.map((a) => {
         if (a.id !== assetId) return a;
         return {

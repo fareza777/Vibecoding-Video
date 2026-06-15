@@ -123,7 +123,14 @@ export function Header({
           </Link>
         </Button>
 
-        <Button variant="secondary" size="sm">
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent("vibecoding:focus"))
+          }
+          title="Buka panel Vibecoding"
+        >
           <Sparkles className="h-3.5 w-3.5 text-cyan" />
           Vibe Assist
         </Button>

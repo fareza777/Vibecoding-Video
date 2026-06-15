@@ -39,6 +39,7 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
   const [aiSettings, setAiSettings] = useState<AiSettings>(loadAiSettings());
   const [aiConnected, setAiConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const messages = useEditorStore((s) => s.vibecodingMessages);
   const isProcessing = useEditorStore((s) => s.isVibecodingProcessing);
@@ -61,6 +62,15 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
       .then((d) => setAiConnected(d.hasServerKey || aiSettings.apiKey.length > 10))
       .catch(() => setAiConnected(aiSettings.apiKey.length > 10));
   }, [aiSettings.apiKey]);
+
+  useEffect(() => {
+    const handler = () => {
+      inputRef.current?.focus();
+      inputRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    };
+    window.addEventListener("vibecoding:focus", handler);
+    return () => window.removeEventListener("vibecoding:focus", handler);
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -271,6 +281,7 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
 
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={

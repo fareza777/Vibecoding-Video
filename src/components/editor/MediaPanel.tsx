@@ -14,6 +14,12 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  appendEffectToClip,
+  buildTextClip,
+  EFFECT_PRESETS,
+  TEXT_PRESETS,
+} from "@/lib/clip-effects";
 import { processImportedMedia } from "@/lib/media-import";
 import { yieldToMain } from "@/lib/media-utils";
 import { cn, formatDuration } from "@/lib/utils";
@@ -96,6 +102,8 @@ export function MediaPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [loadingAssets, setLoadingAssets] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [panelHint, setPanelHint] = useState<string | null>(null);
 
   const activePanel = useEditorStore((s) => s.activePanel);
   const setActivePanel = useEditorStore((s) => s.setActivePanel);
@@ -123,6 +131,18 @@ export function MediaPanel() {
       addClip(buildTimelineClip(asset, playhead), true);
     },
     [addClip, clips, playhead]
+  );
+
+  const handleRemoveAsset = useCallback(
+    (assetId: string) => {
+      markLoading(assetId, false);
+      removeAsset(assetId);
+    },
+    [markLoading, removeAsset]
+  );
+
+  const filteredAssets = assets.filter((a) =>
+    a.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleFiles = useCallback(
@@ -213,6 +233,8 @@ export function MediaPanel() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 placeholder="Search media..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-8 pl-8 pr-3 text-xs bg-muted rounded-lg outline-none focus:ring-1 focus:ring-accent"
               />
             </div>
@@ -248,6 +270,12 @@ export function MediaPanel() {
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
+              {panelHint && (
+                <p className="text-[10px] text-cyan bg-cyan/10 border border-cyan/20 rounded-lg px-2 py-1.5">
+                  {panelHint}
+                </p>
+              )}
+
               {assets.length === 0 ? (
                 <div
                   className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-accent/50 transition-colors"
@@ -262,7 +290,7 @@ export function MediaPanel() {
                   </p>
                 </div>
               ) : (
-                assets.map((asset) => {
+                filteredAssets.map((asset) => {
                   const Icon = TYPE_ICONS[asset.type];
                   const isLoading = loadingAssets.has(asset.id);
                   const onTimeline = clips.some((c) => c.assetId === asset.id);
@@ -294,7 +322,7 @@ export function MediaPanel() {
                           {onTimeline ? " · di timeline" : ""}
                         </p>
                       </div>
-                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-0.5 shrink-0">
                         <Button
                           variant="ghost"
                           size="icon-sm"
@@ -311,9 +339,9 @@ export function MediaPanel() {
                           size="icon-sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            removeAsset(asset.id);
+                            handleRemoveAsset(asset.id);
                           }}
-                          title="Remove"
+                          title="Hapus media"
                         >
                           <Trash2 className="h-3 w-3 text-red-400" />
                         </Button>
@@ -327,31 +355,54 @@ export function MediaPanel() {
         </>
       )}
 
-      {activePanel === "effects" && <EffectsLibrary />}
-      {activePanel === "text" && <TextLibrary />}
-      {activePanel === "audio" && <AudioLibrary />}
+      {activePanel === "effects" && (
+        <EffectsLibrary onHint={setPanelHint} />
+      )}
+      {activePanel === "text" && <TextLibrary onHint={setPanelHint} />}
+      {activePanel === "audio" && (
+        <AudioLibrary
+          onImportClick={() => {
+            setActivePanel("media");
+            fileInputRef.current?.click();
+          }}
+          onHint={setPanelHint}
+        />
+      )}
     </aside>
   );
 }
 
-function EffectsLibrary() {
-  const effects = [
-    { name: "Fade In", type: "fade-in" },
-    { name: "Fade Out", type: "fade-out" },
-    { name: "Blur", type: "blur" },
-    { name: "Brightness", type: "brightness" },
-    { name: "Speed Ramp", type: "speed" },
-    { name: "Zoom", type: "zoom" },
-    { name: "Cross Dissolve", type: "transition" },
-  ];
+function EffectsLibrary({ onHint }: { onHint: (msg: string | null) => void }) {
+  const selectedClipId = useEditorStore((s) => s.selectedClipId);
+  const clips = useEditorStore((s) => s.project.clips);
+  const updateClip = useEditorStore((s) => s.updateClip);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
+
+  const applyEffect = (preset: (typeof EFFECT_PRESETS)[number]) => {
+    const clip = clips.find((c) => c.id === selectedClipId) ?? clips[0];
+    if (!clip) {
+      onHint("Pilih clip di timeline dulu, lalu klik efek.");
+      return;
+    }
+    pushHistory();
+    updateClip(clip.id, {
+      effects: appendEffectToClip(clip, preset),
+    });
+    onHint(`Efek "${preset.name}" ditambahkan ke ${clip.label}.`);
+  };
 
   return (
     <ScrollArea className="flex-1 p-3">
+      <p className="text-[10px] text-muted-foreground mb-2">
+        Klik efek → diterapkan ke clip terpilih
+      </p>
       <div className="grid grid-cols-2 gap-2">
-        {effects.map((fx) => (
+        {EFFECT_PRESETS.map((fx) => (
           <button
-            key={fx.type}
-            className="p-3 rounded-lg bg-muted/50 hover:bg-muted text-xs font-medium transition-colors text-left"
+            key={fx.name}
+            type="button"
+            onClick={() => applyEffect(fx)}
+            className="p-3 rounded-lg bg-muted/50 hover:bg-muted hover:border-cyan/30 border border-transparent text-xs font-medium transition-colors text-left"
           >
             <SparklesIcon className="h-4 w-4 text-track-effect mb-1.5" />
             {fx.name}
@@ -362,40 +413,72 @@ function EffectsLibrary() {
   );
 }
 
-function TextLibrary() {
-  const presets = ["Title", "Subtitle", "Lower Third", "Caption", "End Card"];
+function TextLibrary({ onHint }: { onHint: (msg: string | null) => void }) {
+  const playhead = useEditorStore((s) => s.project.playhead);
+  const addClip = useEditorStore((s) => s.addClip);
+  const pushHistory = useEditorStore((s) => s.pushHistory);
+
+  const addText = (preset: (typeof TEXT_PRESETS)[number]) => {
+    pushHistory();
+    addClip(buildTextClip(preset, playhead));
+    onHint(`Teks "${preset.label}" ditambahkan di ${playhead.toFixed(1)}s.`);
+  };
 
   return (
     <ScrollArea className="flex-1 p-3 space-y-2">
-      {presets.map((preset) => (
+      <p className="text-[10px] text-muted-foreground mb-1">
+        Tambah teks di posisi playhead
+      </p>
+      {TEXT_PRESETS.map((preset) => (
         <button
-          key={preset}
-          className="w-full p-3 rounded-lg bg-muted/50 hover:bg-muted text-xs font-medium transition-colors text-left"
+          key={preset.label}
+          type="button"
+          onClick={() => addText(preset)}
+          className="w-full p-3 rounded-lg bg-muted/50 hover:bg-muted hover:border-cyan/30 border border-transparent text-xs font-medium transition-colors text-left"
         >
-          <span className="text-track-text font-bold text-sm">{preset}</span>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Drag to timeline or use Vibecoding
-          </p>
+          <span className="text-track-text font-bold text-sm">{preset.label}</span>
+          <p className="text-[10px] text-muted-foreground mt-0.5">{preset.text}</p>
         </button>
       ))}
     </ScrollArea>
   );
 }
 
-function AudioLibrary() {
-  const presets = ["Background Music", "Whoosh SFX", "Click SFX", "Ambient"];
+function AudioLibrary({
+  onImportClick,
+  onHint,
+}: {
+  onImportClick: () => void;
+  onHint: (msg: string | null) => void;
+}) {
+  const hints = [
+    "Import file MP3/WAV lewat tab Media",
+    "Audio otomatis masuk track Audio 1",
+    "Atur volume per clip di timeline",
+  ];
 
   return (
     <ScrollArea className="flex-1 p-3 space-y-2">
-      {presets.map((preset) => (
-        <button
-          key={preset}
-          className="w-full p-3 rounded-lg bg-muted/50 hover:bg-muted text-xs font-medium transition-colors text-left flex items-center gap-2"
+      <Button variant="outline" size="sm" className="w-full" onClick={onImportClick}>
+        <Upload className="h-3.5 w-3.5" />
+        Import Audio
+      </Button>
+      {hints.map((hint) => (
+        <div
+          key={hint}
+          className="w-full p-3 rounded-lg bg-muted/40 text-xs text-muted-foreground flex items-start gap-2"
         >
-          <Music className="h-4 w-4 text-track-audio" />
-          {preset}
-        </button>
+          <Music className="h-4 w-4 text-track-audio shrink-0 mt-0.5" />
+          {hint}
+        </div>
       ))}
+      <button
+        type="button"
+        className="text-[10px] text-cyan hover:underline"
+        onClick={() => onHint("Gunakan tab Media untuk import audio asli.")}
+      >
+        Bukan sample audio — import file Anda sendiri
+      </button>
     </ScrollArea>
   );
 }
