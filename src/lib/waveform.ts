@@ -1,9 +1,22 @@
 const WAVEFORM_SAMPLES = 120;
+const MAX_AUDIO_DECODE_BYTES = 12 * 1024 * 1024;
 
-export async function generateWaveform(url: string): Promise<number[]> {
+export async function generateWaveform(
+  url: string,
+  mediaType: "video" | "audio" = "audio"
+): Promise<number[]> {
+  if (mediaType === "video") {
+    return generatePlaceholderWaveform();
+  }
+
   try {
     const response = await fetch(url);
-    const arrayBuffer = await response.arrayBuffer();
+    const blob = await response.blob();
+    if (blob.size > MAX_AUDIO_DECODE_BYTES) {
+      return generatePlaceholderWaveform();
+    }
+
+    const arrayBuffer = await blob.arrayBuffer();
     const audioContext = new AudioContext();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
     await audioContext.close();

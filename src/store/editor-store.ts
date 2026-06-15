@@ -67,7 +67,8 @@ interface EditorState {
   addAsset: (asset: MediaAsset) => void;
   updateAsset: (assetId: string, updates: Partial<MediaAsset>) => void;
   removeAsset: (assetId: string) => void;
-  addClip: (clip: Omit<TimelineClip, "id">, skipHistory?: boolean) => void;
+  addClip: (clip: Omit<TimelineClip, "id">, skipHistory?: boolean) => string;
+  updateClipsForAsset: (assetId: string, duration: number) => void;
   updateClip: (clipId: string, updates: Partial<TimelineClip>, recordHistory?: boolean) => void;
   removeClip: (clipId: string, skipHistory?: boolean) => void;
   splitClipAtPlayhead: () => void;
@@ -243,14 +244,47 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   addClip: (clip, skipHistory = false) => {
     if (!skipHistory) get().pushHistory();
-    set((state) => ({
-      project: {
-        ...state.project,
-        clips: [...state.project.clips, { ...clip, id: uuidv4() }],
-        updatedAt: Date.now(),
-      },
-    }));
+    const clipId = uuidv4();
+    set((state) => {
+      const newClips = [...state.project.clips, { ...clip, id: clipId }];
+      const clipEnd = clip.startTime + clip.duration;
+      const newDuration = Math.max(state.project.duration, clipEnd + 5);
+      return {
+        project: {
+          ...state.project,
+          clips: newClips,
+          duration: Math.ceil(newDuration),
+          updatedAt: Date.now(),
+        },
+      };
+    });
+    return clipId;
   },
+
+  updateClipsForAsset: (assetId, duration) =>
+    set((state) => {
+      const updatedClips = state.project.clips.map((c) =>
+        c.assetId === assetId
+          ? {
+              ...c,
+              duration,
+              trimEnd: duration,
+            }
+          : c
+      );
+      const clipEnd = updatedClips.reduce(
+        (max, c) => Math.max(max, c.startTime + c.duration),
+        0
+      );
+      return {
+        project: {
+          ...state.project,
+          clips: updatedClips,
+          duration: Math.max(state.project.duration, Math.ceil(clipEnd + 5)),
+          updatedAt: Date.now(),
+        },
+      };
+    }),
 
   updateClip: (clipId, updates, recordHistory = false) => {
     if (recordHistory) get().pushHistory();

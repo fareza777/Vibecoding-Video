@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Loader2,
   Maximize2,
   Pause,
   Play,
@@ -10,13 +11,25 @@ import {
   Volume2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { computeClipVisualStyle } from "@/lib/effects-engine";
-import { formatTime } from "@/lib/utils";
+import {
+  computeClipVisualStyle,
+  getActiveTextOverlays,
+  styleToCss,
+} from "@/lib/effects-engine";
+import { cn, formatTime } from "@/lib/utils";
 import { useEditorStore } from "@/store/editor-store";
-import { PreviewCompositor } from "./PreviewCompositor";
+
+const POSITION_CLASS = {
+  center: "items-center justify-center",
+  top: "items-start justify-center pt-[12%]",
+  bottom: "items-end justify-center pb-[12%]",
+} as const;
 
 export function PreviewPanel() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const seekGuardRef = useRef(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+
   const isPlaying = useEditorStore((s) => s.isPlaying);
   const setIsPlaying = useEditorStore((s) => s.setIsPlaying);
   const playhead = useEditorStore((s) => s.project.playhead);
@@ -38,35 +51,43 @@ export function PreviewPanel() {
     ? computeClipVisualStyle(activeClip, playhead)
     : null;
 
+  const textOverlays = getActiveTextOverlays(clips, playhead);
+  const showVideo = activeAsset?.type === "video";
+  const showImage = activeAsset?.type === "image";
+
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !activeAsset || activeAsset.type !== "video") return;
+    if (!video || !showVideo || !activeAsset) return;
 
     if (video.src !== activeAsset.url) {
       video.src = activeAsset.url;
-    }
-
-    const clipTime =
-      playhead - (activeClip?.startTime ?? 0) + (activeClip?.trimStart ?? 0);
-    if (Math.abs(video.currentTime - clipTime) > 0.1) {
-      video.currentTime = clipTime;
+      video.load();
     }
 
     if (visualStyle) {
       video.playbackRate = visualStyle.playbackRate;
     }
-  }, [playhead, activeAsset, activeClip, visualStyle]);
+
+    if (isPlaying || seekGuardRef.current) return;
+
+    const clipTime =
+      playhead - (activeClip?.startTime ?? 0) + (activeClip?.trimStart ?? 0);
+    if (Number.isFinite(clipTime) && Math.abs(video.currentTime - clipTime) > 0.08) {
+      seekGuardRef.current = true;
+      video.currentTime = clipTime;
+    }
+  }, [playhead, activeAsset, activeClip, visualStyle, isPlaying, showVideo]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !showVideo) return;
 
     if (isPlaying) {
       video.play().catch(() => setIsPlaying(false));
     } else {
       video.pause();
     }
-  }, [isPlaying, setIsPlaying]);
+  }, [isPlaying, setIsPlaying, showVideo]);
 
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;
@@ -83,10 +104,21 @@ export function PreviewPanel() {
     }
   }, [activeClip, isPlaying, setPlayhead, setIsPlaying, visualStyle]);
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
+  const togglePlay = () => {
+    if (!activeClip || !activeAsset) return;
+    setIsPlaying(!isPlaying);
+  };
 
   const skip = (delta: number) => {
+    seekGuardRef.current = true;
+    setIsPlaying(false);
     setPlayhead(Math.max(0, Math.min(duration, playhead + delta)));
+  };
+
+  const handleScrub = (value: number) => {
+    seekGuardRef.current = true;
+    setIsPlaying(false);
+    setPlayhead(value);
   };
 
   return (
@@ -114,15 +146,76 @@ export function PreviewPanel() {
       </div>
 
       <div className="flex-1 flex items-center justify-center preview-grid bg-[#080810] relative overflow-hidden">
-        <PreviewCompositor
-          activeClip={activeClip}
-          activeAsset={activeAsset}
-          allClips={clips}
-          playhead={playhead}
-          videoRef={videoRef}
-          onTimeUpdate={handleTimeUpdate}
-          onEnded={() => setIsPlaying(false)}
-        />
+        <div className="relative max-h-full max-w-full overflow-hidden shadow-2xl">
+          <video
+            ref={videoRef}
+            className={cn(
+              "max-h-full max-w-full object-contain transition-[filter,opacity,transform] duration-100",
+              showVideo ? "block" : "hidden"
+            )}
+            style={showVideo && visualStyle ? styleToCss(visualStyle) : undefined}
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={() => setIsPlaying(false)}
+            onWaiting={() => setIsBuffering(true)}
+            onCanPlay={() => setIsBuffering(false)}
+            onSeeked={() => {
+              seekGuardRef.current = false;
+            }}
+            playsInline
+            muted={false}
+          />
+
+          {showImage && activeAsset && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={activeAsset.url}
+              alt={activeAsset.name}
+              className="max-h-full max-w-full object-contain transition-[filter,opacity,transform] duration-100"
+              style={visualStyle ? styleToCss(visualStyle) : undefined}
+            />
+          )}
+
+          {!activeClip && (
+            <div className="flex flex-col items-center gap-4 text-muted-foreground py-16 px-8">
+              <div className="h-24 w-24 rounded-2xl border-2 border-dashed border-border flex items-center justify-center">
+                <svg className="h-10 w-10 opacity-30" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium">Preview Area</p>
+                <p className="text-xs mt-1 opacity-60">
+                  Import media — otomatis masuk timeline
+                </p>
+              </div>
+            </div>
+          )}
+
+          {textOverlays.length > 0 && (
+            <>
+              {textOverlays.map((overlay) => (
+                <div
+                  key={overlay.clipId}
+                  className={cn(
+                    "absolute inset-0 flex pointer-events-none px-6",
+                    POSITION_CLASS[overlay.position]
+                  )}
+                  style={{ opacity: overlay.opacity }}
+                >
+                  <span className="text-white text-2xl font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] text-center max-w-[90%]">
+                    {overlay.text}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        {isBuffering && showVideo && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <Loader2 className="h-8 w-8 animate-spin text-cyan" />
+          </div>
+        )}
 
         <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/60 text-[10px] font-mono text-white/80">
           PREVIEW
@@ -139,6 +232,7 @@ export function PreviewPanel() {
           size="icon"
           onClick={togglePlay}
           className="h-10 w-10 rounded-full"
+          disabled={!activeClip}
         >
           {isPlaying ? (
             <Pause className="h-4 w-4" />
@@ -161,7 +255,7 @@ export function PreviewPanel() {
             max={duration}
             step={0.01}
             value={playhead}
-            onChange={(e) => setPlayhead(parseFloat(e.target.value))}
+            onChange={(e) => handleScrub(parseFloat(e.target.value))}
             className="flex-1 h-1 accent-accent cursor-pointer"
           />
           <span className="text-xs font-mono text-muted-foreground w-20">

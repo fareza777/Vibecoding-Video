@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   Film,
   ImageIcon,
+  Loader2,
   Music,
   Plus,
   Search,
@@ -13,6 +14,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { getMediaDuration, probeVideoDimensions } from "@/lib/media-utils";
 import { saveMediaBlob } from "@/lib/media-storage";
 import { generateWaveform } from "@/lib/waveform";
 import { cn, formatDuration } from "@/lib/utils";
@@ -61,8 +63,41 @@ function detectMediaType(file: File): MediaType {
   return "image";
 }
 
+function buildTimelineClip(asset: MediaAsset, startTime: number) {
+  const trackMap: Record<MediaType, string> = {
+    video: "track-video-1",
+    audio: "track-audio-1",
+    image: "track-video-2",
+  };
+
+  const colorMap: Record<MediaType, string> = {
+    video: "#38bdf8",
+    audio: "#34d399",
+    image: "#fbbf24",
+  };
+
+  const duration = asset.duration > 0 ? asset.duration : 5;
+
+  return {
+    assetId: asset.id,
+    trackId: trackMap[asset.type],
+    startTime,
+    duration,
+    trimStart: 0,
+    trimEnd: duration,
+    label: asset.name,
+    color: colorMap[asset.type],
+    opacity: 1,
+    volume: 1,
+    effects: [],
+  };
+}
+
 export function MediaPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [loadingAssets, setLoadingAssets] = useState<Set<string>>(new Set());
+
   const activePanel = useEditorStore((s) => s.activePanel);
   const setActivePanel = useEditorStore((s) => s.setActivePanel);
   const projectId = useEditorStore((s) => s.project.id);
@@ -71,45 +106,103 @@ export function MediaPanel() {
   const updateAsset = useEditorStore((s) => s.updateAsset);
   const removeAsset = useEditorStore((s) => s.removeAsset);
   const addClip = useEditorStore((s) => s.addClip);
+  const updateClipsForAsset = useEditorStore((s) => s.updateClipsForAsset);
   const playhead = useEditorStore((s) => s.project.playhead);
+  const clips = useEditorStore((s) => s.project.clips);
+
+  const markLoading = useCallback((assetId: string, loading: boolean) => {
+    setLoadingAssets((prev) => {
+      const next = new Set(prev);
+      if (loading) next.add(assetId);
+      else next.delete(assetId);
+      return next;
+    });
+  }, []);
+
+  const addToTimeline = useCallback(
+    (asset: MediaAsset) => {
+      if (clips.some((c) => c.assetId === asset.id)) return;
+      addClip(buildTimelineClip(asset, playhead), true);
+    },
+    [addClip, clips, playhead]
+  );
 
   const handleFiles = useCallback(
     async (files: FileList | null) => {
-      if (!files) return;
+      if (!files || files.length === 0) return;
 
-      for (const file of Array.from(files)) {
-        const type = detectMediaType(file);
-        const url = URL.createObjectURL(file);
+      setImporting(true);
+      try {
+        for (const file of Array.from(files)) {
+          const type = detectMediaType(file);
+          const url = URL.createObjectURL(file);
+          const assetId = uuidv4();
 
-        let duration = 5;
-        if (type === "video" || type === "audio") {
-          duration = await getMediaDuration(url, type);
+          const asset: MediaAsset = {
+            id: assetId,
+            name: file.name,
+            type,
+            url,
+            duration: 0,
+            size: file.size,
+            createdAt: Date.now(),
+          };
+
+          addAsset(asset);
+          markLoading(assetId, true);
+
+          saveMediaBlob(projectId, assetId, file, file.name, file.type).catch(
+            () => {
+              // IndexedDB unavailable — project still works with blob URL
+            }
+          );
+
+          addToTimeline(asset);
+
+          void (async () => {
+            try {
+              let duration = 5;
+              if (type === "video" || type === "audio") {
+                duration = await getMediaDuration(url, type);
+              } else {
+                duration = 5;
+              }
+
+              const updates: Partial<MediaAsset> = { duration };
+
+              if (type === "video") {
+                const dims = await probeVideoDimensions(url);
+                if (dims) {
+                  updates.width = dims.width;
+                  updates.height = dims.height;
+                }
+              }
+
+              updateAsset(assetId, updates);
+              updateClipsForAsset(assetId, duration);
+
+              if (type === "video" || type === "audio") {
+                const waveform = await generateWaveform(url, type);
+                updateAsset(assetId, { waveform });
+              }
+            } finally {
+              markLoading(assetId, false);
+            }
+          })();
         }
-
-        const asset: MediaAsset = {
-          id: uuidv4(),
-          name: file.name,
-          type,
-          url,
-          duration,
-          size: file.size,
-          createdAt: Date.now(),
-        };
-
-        addAsset(asset);
-
-        saveMediaBlob(projectId, asset.id, file, file.name, file.type).catch(() => {
-          // IndexedDB unavailable — project still works with blob URL
-        });
-
-        if (type === "video" || type === "audio") {
-          generateWaveform(url).then((waveform) => {
-            updateAsset(asset.id, { waveform });
-          });
-        }
+      } finally {
+        setImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [addAsset, updateAsset, projectId]
+    [
+      addAsset,
+      addToTimeline,
+      markLoading,
+      projectId,
+      updateAsset,
+      updateClipsForAsset,
+    ]
   );
 
   const handleDrop = useCallback(
@@ -119,34 +212,6 @@ export function MediaPanel() {
     },
     [handleFiles]
   );
-
-  const addToTimeline = (asset: MediaAsset) => {
-    const trackMap: Record<MediaType, string> = {
-      video: "track-video-1",
-      audio: "track-audio-1",
-      image: "track-video-2",
-    };
-
-    const colorMap: Record<MediaType, string> = {
-      video: "#3b82f6",
-      audio: "#22c55e",
-      image: "#f59e0b",
-    };
-
-    addClip({
-      assetId: asset.id,
-      trackId: trackMap[asset.type],
-      startTime: playhead,
-      duration: asset.duration,
-      trimStart: 0,
-      trimEnd: asset.duration,
-      label: asset.name,
-      color: colorMap[asset.type],
-      opacity: 1,
-      volume: 1,
-      effects: [],
-    });
-  };
 
   return (
     <aside className="flex flex-col border-r border-border bg-surface w-[280px] shrink-0">
@@ -192,10 +257,15 @@ export function MediaPanel() {
               variant="outline"
               size="sm"
               className="w-full"
+              disabled={importing}
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload className="h-3.5 w-3.5" />
-              Import Media
+              {importing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="h-3.5 w-3.5" />
+              )}
+              {importing ? "Importing..." : "Import Media"}
             </Button>
           </div>
 
@@ -221,6 +291,9 @@ export function MediaPanel() {
               ) : (
                 assets.map((asset) => {
                   const Icon = TYPE_ICONS[asset.type];
+                  const isLoading = loadingAssets.has(asset.id);
+                  const onTimeline = clips.some((c) => c.assetId === asset.id);
+
                   return (
                     <div
                       key={asset.id}
@@ -229,17 +302,23 @@ export function MediaPanel() {
                     >
                       <div
                         className={cn(
-                          "flex h-10 w-10 items-center justify-center rounded-md bg-surface-elevated shrink-0",
+                          "flex h-10 w-10 items-center justify-center rounded-md bg-surface-elevated shrink-0 relative",
                           TYPE_COLORS[asset.type]
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        {isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Icon className="h-4 w-4" />
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate">{asset.name}</p>
                         <p className="text-[10px] text-muted-foreground">
-                          {formatDuration(asset.duration)} ·{" "}
-                          {(asset.size / 1024 / 1024).toFixed(1)} MB
+                          {isLoading || asset.duration <= 0
+                            ? "Memuat metadata..."
+                            : `${formatDuration(asset.duration)} · ${(asset.size / 1024 / 1024).toFixed(1)} MB`}
+                          {onTimeline ? " · di timeline" : ""}
                         </p>
                       </div>
                       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -346,16 +425,4 @@ function AudioLibrary() {
       ))}
     </ScrollArea>
   );
-}
-
-function getMediaDuration(url: string, type: "video" | "audio"): Promise<number> {
-  return new Promise((resolve) => {
-    const el = document.createElement(type);
-    el.preload = "metadata";
-    el.onloadedmetadata = () => {
-      resolve(el.duration || 5);
-    };
-    el.onerror = () => resolve(5);
-    el.src = url;
-  });
 }
