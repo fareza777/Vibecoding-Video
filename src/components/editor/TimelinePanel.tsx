@@ -10,7 +10,6 @@ import {
   Eye,
   EyeOff,
   Scissors,
-  Trash2,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -43,7 +42,6 @@ export function TimelinePanel() {
   const snapEnabled = useEditorStore((s) => s.snapEnabled);
   const toggleSnap = useEditorStore((s) => s.toggleSnap);
   const updateTrack = useEditorStore((s) => s.updateTrack);
-  const removeClip = useEditorStore((s) => s.removeClip);
   const duplicateClip = useEditorStore((s) => s.duplicateClip);
   const splitClipAtPlayhead = useEditorStore((s) => s.splitClipAtPlayhead);
 
@@ -106,17 +104,6 @@ export function TimelinePanel() {
             title="Duplikat clip"
           >
             <Copy className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="h-7 px-2.5 text-[10px] font-semibold"
-            disabled={!selectedClipId}
-            onClick={() => selectedClipId && removeClip(selectedClipId)}
-            title="Hapus clip (Del)"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Hapus
           </Button>
           <div className="w-px h-4 bg-border mx-1" />
           <Button

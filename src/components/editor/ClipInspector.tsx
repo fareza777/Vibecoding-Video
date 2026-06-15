@@ -4,8 +4,6 @@ import { useMemo } from "react";
 import {
   Copy,
   Scissors,
-  Trash2,
-  Volume2,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,7 +62,6 @@ export function ClipInspector() {
   const playhead = useEditorStore((s) => s.project.playhead);
   const updateClip = useEditorStore((s) => s.updateClip);
   const pushHistory = useEditorStore((s) => s.pushHistory);
-  const removeClip = useEditorStore((s) => s.removeClip);
   const duplicateClip = useEditorStore((s) => s.duplicateClip);
   const splitClipAtPlayhead = useEditorStore((s) => s.splitClipAtPlayhead);
 
@@ -127,16 +124,6 @@ export function ClipInspector() {
           >
             <Copy className="h-3 w-3" />
             Duplikat
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="h-7 px-2 text-[10px]"
-            onClick={() => removeClip(clip.id)}
-            title="Hapus clip (Del)"
-          >
-            <Trash2 className="h-3 w-3" />
-            Hapus
           </Button>
         </div>
       </div>
@@ -232,10 +219,10 @@ export function ClipInspector() {
                       onClick={() =>
                         patch({ effects: removeEffectFromClip(clip, fx.id) })
                       }
-                      className="p-0.5 text-red-400 hover:text-red-300"
-                      title="Hapus efek"
+                      className="px-1 text-[10px] text-muted-foreground hover:text-foreground"
+                      title="Buang efek"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      ×
                     </button>
                   </div>
                 ))}
