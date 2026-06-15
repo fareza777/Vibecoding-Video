@@ -89,7 +89,24 @@ npm run build
 npm run typecheck
 ```
 
-Buka [http://localhost:3000](http://localhost:3000)
+Buka [http://localhost:3000](http://localhost:3000) untuk landing, atau langsung ke editor di [http://localhost:3000/editor](http://localhost:3000/editor)
+
+## Deploy ke Vercel
+
+1. Push repo ke GitHub: `https://github.com/fareza777/Vibecoding-Video`
+2. Di [Vercel](https://vercel.com/new) → **Import** repository tersebut
+3. Framework preset: **Next.js** (auto-detect)
+4. **Environment Variables** (Project Settings → Environment Variables):
+
+| Variable | Wajib | Keterangan |
+|----------|-------|------------|
+| `MINIMAX_API_KEY` | Ya (untuk AI) | API key dari [MiniMax](https://platform.minimax.io/) |
+| `SUPABASE_URL` | Opsional | Cloud sync — bisa juga diisi di Settings UI |
+| `SUPABASE_ANON_KEY` | Opsional | Anon key Supabase |
+
+5. Deploy → landing di `/`, editor di `/editor`
+
+> **Catatan:** FFmpeg.wasm berjalan di browser client. Pertama kali export mungkin butuh waktu load WASM. Untuk cloud sync, buat bucket Supabase `vibecoding-projects` seperti di bagian Cloud Sync Setup.
 
 ### AI Setup (MiniMax Vibecoding)
 

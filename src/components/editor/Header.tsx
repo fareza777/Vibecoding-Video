@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import {
   CloudUpload,
   Download,
   Film,
   FolderOpen,
+  Home,
   Redo2,
   Save,
   Settings,
@@ -37,11 +39,11 @@ export function Header({
   const saveProject = useEditorStore((s) => s.saveProject);
 
   return (
-    <header className="flex h-12 items-center justify-between border-b border-border bg-surface px-4 shrink-0">
+    <header className="flex h-12 items-center justify-between border-b border-border/80 bg-surface/90 backdrop-blur-md px-4 shrink-0">
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 glow-accent">
-            <Film className="h-4 w-4 text-accent-glow" />
+        <Link href="/" className="flex items-center gap-2 group" title="Kembali ke beranda">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan/10 border border-cyan/20 glow-accent-sm transition-transform group-hover:scale-105">
+            <Film className="h-4 w-4 text-cyan" />
           </div>
           <div>
             <h1 className="text-sm font-semibold text-gradient leading-none">
@@ -49,7 +51,7 @@ export function Header({
             </h1>
             <p className="text-[10px] text-muted-foreground">AI-Powered Editor</p>
           </div>
-        </div>
+        </Link>
 
         <div className="h-5 w-px bg-border" />
 
@@ -115,8 +117,14 @@ export function Header({
 
         <div className="h-5 w-px bg-border mx-2" />
 
+        <Button variant="ghost" size="icon-sm" asChild title="Beranda">
+          <Link href="/">
+            <Home className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
+
         <Button variant="secondary" size="sm">
-          <Sparkles className="h-3.5 w-3.5 text-accent-glow" />
+          <Sparkles className="h-3.5 w-3.5 text-cyan" />
           Vibe Assist
         </Button>
         <Button variant="default" size="sm" onClick={onOpenExport}>

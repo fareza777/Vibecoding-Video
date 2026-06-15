@@ -1,21 +1,43 @@
-import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { JetBrains_Mono, Outfit } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const outfit = Outfit({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-outfit",
+  display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Vibecoding Video — AI-Powered Video Editor",
+  title: {
+    default: "Vibecoding Video — Edit Video dengan Bahasa Natural",
+    template: "%s · Vibecoding Video",
+  },
   description:
-    "Professional video editor powered by Vibecoding. Edit videos with natural language commands, live preview, and a full timeline.",
+    "Editor video berbasis AI. Timeline multi-track, live preview, export FFmpeg, dan Vibecoding — edit video cukup dengan perintah bahasa natural.",
+  keywords: [
+    "video editor",
+    "AI video editing",
+    "vibecoding",
+    "timeline editor",
+    "browser video editor",
+  ],
+  openGraph: {
+    title: "Vibecoding Video",
+    description: "Edit video dengan bahasa natural. Timeline, preview, export — semua di browser.",
+    type: "website",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#050508",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -25,7 +47,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" className="dark">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}>
+      <body
+        className={`${outfit.variable} ${jetbrainsMono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>
