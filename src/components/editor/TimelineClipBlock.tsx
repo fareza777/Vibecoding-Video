@@ -38,10 +38,7 @@ export function TimelineClipBlock({
   const updateClip = useEditorStore((s) => s.updateClip);
   const pushHistory = useEditorStore((s) => s.pushHistory);
   const setSelectedClip = useEditorStore((s) => s.setSelectedClip);
-  const clips = useEditorStore((s) => s.project.clips);
-  const projectDuration = useEditorStore((s) => s.project.duration);
   const snapEnabled = useEditorStore((s) => s.snapEnabled);
-  const fps = useEditorStore((s) => s.project.fps);
 
   const width = clip.duration * pps;
   const showWaveform =
@@ -98,6 +95,9 @@ export function TimelineClipBlock({
           }
         }
 
+        const { clips, duration: projectDuration, fps } =
+          useEditorStore.getState().project;
+
         const updates = resolveClipMove(
           clip,
           newStart,
@@ -109,6 +109,7 @@ export function TimelineClipBlock({
         );
         updateClip(clip.id, updates);
       } else {
+        const { fps } = useEditorStore.getState().project;
         const updates = resolveClipResize(
           clip,
           dragMode === "resize-left" ? "left" : "right",
@@ -128,18 +129,7 @@ export function TimelineClipBlock({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [
-    dragMode,
-    pps,
-    clip,
-    clips,
-    projectDuration,
-    snapEnabled,
-    fps,
-    tracks,
-    timelineRef,
-    updateClip,
-  ]);
+  }, [dragMode, pps, clip, snapEnabled, tracks, timelineRef, updateClip]);
 
   return (
     <div

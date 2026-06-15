@@ -27,8 +27,10 @@ const POSITION_CLASS = {
 
 export function PreviewPanel() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const boundUrlRef = useRef<string | null>(null);
   const seekGuardRef = useRef(false);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
 
   const isPlaying = useEditorStore((s) => s.isPlaying);
   const setIsPlaying = useEditorStore((s) => s.setIsPlaying);
@@ -54,14 +56,26 @@ export function PreviewPanel() {
   const textOverlays = getActiveTextOverlays(clips, playhead);
   const showVideo = activeAsset?.type === "video";
   const showImage = activeAsset?.type === "image";
+  const shouldBindVideo =
+    showVideo && Boolean(activeAsset?.url) && (isPlaying || previewReady);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !showVideo || !activeAsset) return;
+    if (!video || !showVideo || !activeAsset?.url) return;
 
-    if (video.src !== activeAsset.url) {
+    if (!shouldBindVideo) {
+      if (boundUrlRef.current) {
+        video.removeAttribute("src");
+        video.load();
+        boundUrlRef.current = null;
+      }
+      return;
+    }
+
+    if (boundUrlRef.current !== activeAsset.url) {
+      video.preload = isPlaying ? "auto" : "metadata";
       video.src = activeAsset.url;
-      video.load();
+      boundUrlRef.current = activeAsset.url;
     }
 
     if (visualStyle) {
@@ -72,22 +86,34 @@ export function PreviewPanel() {
 
     const clipTime =
       playhead - (activeClip?.startTime ?? 0) + (activeClip?.trimStart ?? 0);
-    if (Number.isFinite(clipTime) && Math.abs(video.currentTime - clipTime) > 0.08) {
+    if (
+      Number.isFinite(clipTime) &&
+      video.readyState >= 1 &&
+      Math.abs(video.currentTime - clipTime) > 0.12
+    ) {
       seekGuardRef.current = true;
       video.currentTime = clipTime;
     }
-  }, [playhead, activeAsset, activeClip, visualStyle, isPlaying, showVideo]);
+  }, [
+    playhead,
+    activeAsset,
+    activeClip,
+    visualStyle,
+    isPlaying,
+    showVideo,
+    shouldBindVideo,
+  ]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !showVideo) return;
+    if (!video || !showVideo || !shouldBindVideo) return;
 
     if (isPlaying) {
       video.play().catch(() => setIsPlaying(false));
     } else {
       video.pause();
     }
-  }, [isPlaying, setIsPlaying, showVideo]);
+  }, [isPlaying, setIsPlaying, showVideo, shouldBindVideo]);
 
   const handleTimeUpdate = useCallback(() => {
     const video = videoRef.current;
@@ -106,17 +132,20 @@ export function PreviewPanel() {
 
   const togglePlay = () => {
     if (!activeClip || !activeAsset) return;
+    setPreviewReady(true);
     setIsPlaying(!isPlaying);
   };
 
   const skip = (delta: number) => {
     seekGuardRef.current = true;
+    setPreviewReady(true);
     setIsPlaying(false);
     setPlayhead(Math.max(0, Math.min(duration, playhead + delta)));
   };
 
   const handleScrub = (value: number) => {
     seekGuardRef.current = true;
+    setPreviewReady(true);
     setIsPlaying(false);
     setPlayhead(value);
   };
@@ -151,19 +180,34 @@ export function PreviewPanel() {
             ref={videoRef}
             className={cn(
               "max-h-full max-w-full object-contain transition-[filter,opacity,transform] duration-100",
-              showVideo ? "block" : "hidden"
+              showVideo && shouldBindVideo ? "block" : "hidden"
             )}
             style={showVideo && visualStyle ? styleToCss(visualStyle) : undefined}
             onTimeUpdate={handleTimeUpdate}
             onEnded={() => setIsPlaying(false)}
             onWaiting={() => setIsBuffering(true)}
             onCanPlay={() => setIsBuffering(false)}
+            onLoadedData={() => setIsBuffering(false)}
             onSeeked={() => {
               seekGuardRef.current = false;
             }}
             playsInline
-            muted={false}
+            preload="none"
           />
+
+          {showVideo && !shouldBindVideo && activeAsset && (
+            <div className="flex flex-col items-center gap-3 text-muted-foreground py-16 px-10 min-w-[280px]">
+              <div className="h-20 w-20 rounded-2xl border border-cyan/20 bg-cyan/5 flex items-center justify-center">
+                <Play className="h-8 w-8 text-cyan/60 ml-1" />
+              </div>
+              <p className="text-xs text-center max-w-[220px]">
+                {activeAsset.name}
+              </p>
+              <p className="text-[10px] text-center opacity-60">
+                Tekan Play untuk memuat preview
+              </p>
+            </div>
+          )}
 
           {showImage && activeAsset && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -211,8 +255,8 @@ export function PreviewPanel() {
           )}
         </div>
 
-        {isBuffering && showVideo && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+        {isBuffering && showVideo && shouldBindVideo && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
             <Loader2 className="h-8 w-8 animate-spin text-cyan" />
           </div>
         )}

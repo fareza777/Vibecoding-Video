@@ -69,6 +69,15 @@ interface EditorState {
   removeAsset: (assetId: string) => void;
   addClip: (clip: Omit<TimelineClip, "id">, skipHistory?: boolean) => string;
   updateClipsForAsset: (assetId: string, duration: number) => void;
+  finalizeAssetImport: (
+    assetId: string,
+    data: {
+      duration?: number;
+      width?: number;
+      height?: number;
+      waveform?: number[];
+    }
+  ) => void;
   updateClip: (clipId: string, updates: Partial<TimelineClip>, recordHistory?: boolean) => void;
   removeClip: (clipId: string, skipHistory?: boolean) => void;
   splitClipAtPlayhead: () => void;
@@ -279,6 +288,51 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return {
         project: {
           ...state.project,
+          clips: updatedClips,
+          duration: Math.max(state.project.duration, Math.ceil(clipEnd + 5)),
+          updatedAt: Date.now(),
+        },
+      };
+    }),
+
+  finalizeAssetImport: (assetId, data) =>
+    set((state) => {
+      const updatedAssets = state.project.assets.map((a) => {
+        if (a.id !== assetId) return a;
+        return {
+          ...a,
+          ...(data.duration !== undefined && data.duration > 0
+            ? { duration: data.duration }
+            : {}),
+          ...(data.width !== undefined ? { width: data.width } : {}),
+          ...(data.height !== undefined ? { height: data.height } : {}),
+          ...(data.waveform !== undefined ? { waveform: data.waveform } : {}),
+        };
+      });
+
+      const hasDuration =
+        data.duration !== undefined && data.duration > 0;
+      const updatedClips = hasDuration
+        ? state.project.clips.map((c) =>
+            c.assetId === assetId
+              ? {
+                  ...c,
+                  duration: data.duration!,
+                  trimEnd: data.duration!,
+                }
+              : c
+          )
+        : state.project.clips;
+
+      const clipEnd = updatedClips.reduce(
+        (max, c) => Math.max(max, c.startTime + c.duration),
+        0
+      );
+
+      return {
+        project: {
+          ...state.project,
+          assets: updatedAssets,
           clips: updatedClips,
           duration: Math.max(state.project.duration, Math.ceil(clipEnd + 5)),
           updatedAt: Date.now(),

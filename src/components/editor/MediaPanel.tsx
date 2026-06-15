@@ -14,9 +14,8 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getMediaDuration, probeVideoDimensions } from "@/lib/media-utils";
-import { saveMediaBlob } from "@/lib/media-storage";
-import { generateWaveform } from "@/lib/waveform";
+import { processImportedMedia } from "@/lib/media-import";
+import { yieldToMain } from "@/lib/media-utils";
 import { cn, formatDuration } from "@/lib/utils";
 import { useEditorStore } from "@/store/editor-store";
 import type { MediaAsset, MediaType, PanelId } from "@/types/editor";
@@ -103,10 +102,9 @@ export function MediaPanel() {
   const projectId = useEditorStore((s) => s.project.id);
   const assets = useEditorStore((s) => s.project.assets);
   const addAsset = useEditorStore((s) => s.addAsset);
-  const updateAsset = useEditorStore((s) => s.updateAsset);
   const removeAsset = useEditorStore((s) => s.removeAsset);
   const addClip = useEditorStore((s) => s.addClip);
-  const updateClipsForAsset = useEditorStore((s) => s.updateClipsForAsset);
+  const finalizeAssetImport = useEditorStore((s) => s.finalizeAssetImport);
   const playhead = useEditorStore((s) => s.project.playhead);
   const clips = useEditorStore((s) => s.project.clips);
 
@@ -128,80 +126,55 @@ export function MediaPanel() {
   );
 
   const handleFiles = useCallback(
-    async (files: FileList | null) => {
+    (files: FileList | null) => {
       if (!files || files.length === 0) return;
 
+      const fileList = Array.from(files);
       setImporting(true);
-      try {
-        for (const file of Array.from(files)) {
-          const type = detectMediaType(file);
-          const url = URL.createObjectURL(file);
-          const assetId = uuidv4();
 
-          const asset: MediaAsset = {
-            id: assetId,
-            name: file.name,
-            type,
-            url,
-            duration: 0,
-            size: file.size,
-            createdAt: Date.now(),
-          };
+      for (const file of fileList) {
+        const type = detectMediaType(file);
+        const url = URL.createObjectURL(file);
+        const assetId = uuidv4();
 
-          addAsset(asset);
-          markLoading(assetId, true);
+        const asset: MediaAsset = {
+          id: assetId,
+          name: file.name,
+          type,
+          url,
+          duration: 0,
+          size: file.size,
+          createdAt: Date.now(),
+        };
 
-          saveMediaBlob(projectId, assetId, file, file.name, file.type).catch(
-            () => {
-              // IndexedDB unavailable — project still works with blob URL
-            }
-          );
+        addAsset(asset);
+        markLoading(assetId, true);
+        addToTimeline(asset);
 
-          addToTimeline(asset);
-
-          void (async () => {
-            try {
-              let duration = 5;
-              if (type === "video" || type === "audio") {
-                duration = await getMediaDuration(url, type);
-              } else {
-                duration = 5;
-              }
-
-              const updates: Partial<MediaAsset> = { duration };
-
-              if (type === "video") {
-                const dims = await probeVideoDimensions(url);
-                if (dims) {
-                  updates.width = dims.width;
-                  updates.height = dims.height;
-                }
-              }
-
-              updateAsset(assetId, updates);
-              updateClipsForAsset(assetId, duration);
-
-              if (type === "video" || type === "audio") {
-                const waveform = await generateWaveform(url, type);
-                updateAsset(assetId, { waveform });
-              }
-            } finally {
-              markLoading(assetId, false);
-            }
-          })();
-        }
-      } finally {
-        setImporting(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
+        void processImportedMedia(projectId, assetId, file, url, type, {
+          onProbeComplete: (id, data) => {
+            finalizeAssetImport(id, data);
+          },
+          onWaveformComplete: (id, waveform) => {
+            finalizeAssetImport(id, { waveform });
+          },
+          onDone: (id) => {
+            markLoading(id, false);
+          },
+        });
       }
+
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+
+      void yieldToMain();
     },
     [
       addAsset,
       addToTimeline,
+      finalizeAssetImport,
       markLoading,
       projectId,
-      updateAsset,
-      updateClipsForAsset,
     ]
   );
 

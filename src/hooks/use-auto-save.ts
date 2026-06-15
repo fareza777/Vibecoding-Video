@@ -7,23 +7,27 @@ import { useEditorStore } from "@/store/editor-store";
 const AUTOSAVE_INTERVAL_MS = 30_000;
 
 export function useAutoSave() {
-  const project = useEditorStore((s) => s.project);
-  const exportSettings = useEditorStore((s) => s.exportSettings);
+  const projectId = useEditorStore((s) => s.project.id);
   const setLastSaved = useEditorStore((s) => s.setLastSaved);
-  const initialDone = useRef(false);
+  const projectRef = useRef(useEditorStore.getState().project);
+  const exportRef = useRef(useEditorStore.getState().exportSettings);
 
   useEffect(() => {
-    if (!initialDone.current) {
-      initialDone.current = true;
-      return;
-    }
+    return useEditorStore.subscribe((state) => {
+      projectRef.current = state.project;
+      exportRef.current = state.exportSettings;
+    });
+  }, []);
 
+  useEffect(() => {
     const timer = setInterval(async () => {
+      const project = projectRef.current;
+      const exportSettings = exportRef.current;
       await persistProjectMedia(project.id, project.assets);
       saveAutosave(project, exportSettings);
       setLastSaved(Date.now());
     }, AUTOSAVE_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [project, exportSettings, setLastSaved]);
+  }, [projectId, setLastSaved]);
 }
