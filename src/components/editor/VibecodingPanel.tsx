@@ -54,6 +54,11 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
   const splitClipAtTime = useEditorStore((s) => s.splitClipAtTime);
   const pushHistory = useEditorStore((s) => s.pushHistory);
   const selectedClipId = useEditorStore((s) => s.selectedClipId);
+  const activeClip = project.clips.find(
+    (c) =>
+      project.playhead >= c.startTime &&
+      project.playhead < c.startTime + c.duration
+  );
 
   useEffect(() => {
     const settings = loadAiSettings();
@@ -123,6 +128,26 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
           playhead: project.playhead,
         });
 
+        // Kalau ada fade-in/fade-out effect yang ke-apply, set playhead ke posisi
+        // supaya user langsung lihat efeknya (default playhead=0 + fade-in = layar hitam).
+        const fadeApplied = appliedActions.find(
+          (a) =>
+            a.applied &&
+            a.type === "effect" &&
+            (a.params.effect === "fade-in" || a.params.effect === "fade-out")
+        );
+        if (fadeApplied && activeClip) {
+          const fadeDur = (fadeApplied.params.duration as number) ?? 1;
+          if (fadeApplied.params.effect === "fade-in") {
+            setPlayhead(activeClip.startTime + Math.min(fadeDur * 0.5, activeClip.duration / 2));
+          } else {
+            setPlayhead(
+              activeClip.startTime +
+                Math.max(activeClip.duration - fadeDur * 1.5, 0)
+            );
+          }
+        }
+
         addVibeMessage({
           role: "assistant",
           content: result.message,
@@ -156,6 +181,7 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
       setSelectedClip,
       splitClipAtTime,
       pushHistory,
+      activeClip,
     ]
   );
 
