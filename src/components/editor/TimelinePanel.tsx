@@ -37,6 +37,7 @@ export function TimelinePanel() {
   const zoom = useEditorStore((s) => s.project.zoom);
   const setPlayhead = useEditorStore((s) => s.setPlayhead);
   const setTimelineZoom = useEditorStore((s) => s.setTimelineZoom);
+  const setTimelineHeight = useEditorStore((s) => s.setTimelineHeight);
   const selectedClipId = useEditorStore((s) => s.selectedClipId);
   const timelineHeight = useEditorStore((s) => s.timelineHeight);
   const snapEnabled = useEditorStore((s) => s.snapEnabled);
@@ -73,6 +74,12 @@ export function TimelinePanel() {
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-surface">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">Timeline</span>
+          <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+            {clips.length} clip
+          </span>
+          <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+            {formatTime(duration)}
+          </span>
           <Button
             variant={snapEnabled ? "cyan" : "ghost"}
             size="sm"
@@ -104,6 +111,25 @@ export function TimelinePanel() {
             title="Duplikat clip"
           >
             <Copy className="h-3 w-3" />
+          </Button>
+          <div className="w-px h-4 bg-border mx-1" />
+          <Button
+            variant={timelineHeight <= 200 ? "secondary" : "ghost"}
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setTimelineHeight(180)}
+            title="Timeline compact"
+          >
+            Compact
+          </Button>
+          <Button
+            variant={timelineHeight >= 280 ? "secondary" : "ghost"}
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            onClick={() => setTimelineHeight(300)}
+            title="Timeline detail"
+          >
+            Detail
           </Button>
           <div className="w-px h-4 bg-border mx-1" />
           <Button

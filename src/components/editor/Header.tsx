@@ -8,6 +8,8 @@ import {
   Film,
   FolderOpen,
   Home,
+  Maximize2,
+  Minimize2,
   Redo2,
   Save,
   Settings,
@@ -36,6 +38,12 @@ export function Header({
   const projectClips = useEditorStore((s) => s.project.clips.length);
   const projectAssets = useEditorStore((s) => s.project.assets.length);
   const setProjectName = useEditorStore((s) => s.setProjectName);
+  const showMediaPanel = useEditorStore((s) => s.showMediaPanel);
+  const showVibecodingPanel = useEditorStore((s) => s.showVibecodingPanel);
+  const focusMode = useEditorStore((s) => s.focusMode);
+  const toggleMediaPanel = useEditorStore((s) => s.toggleMediaPanel);
+  const toggleVibecodingPanel = useEditorStore((s) => s.toggleVibecodingPanel);
+  const toggleFocusMode = useEditorStore((s) => s.toggleFocusMode);
   const undo = useEditorStore((s) => s.undo);
   const redo = useEditorStore((s) => s.redo);
   const historyPast = useEditorStore((s) => s.historyPast);
@@ -156,6 +164,32 @@ export function Header({
           <Link href="/">
             <Home className="h-3.5 w-3.5" />
           </Link>
+        </Button>
+
+        <Button
+          variant={showMediaPanel && !focusMode ? "secondary" : "ghost"}
+          size="sm"
+          onClick={toggleMediaPanel}
+          title="Tampilkan atau sembunyikan panel media"
+        >
+          Media
+        </Button>
+        <Button
+          variant={focusMode ? "cyan" : "ghost"}
+          size="sm"
+          onClick={toggleFocusMode}
+          title="Mode fokus editor"
+        >
+          {focusMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          Focus
+        </Button>
+        <Button
+          variant={showVibecodingPanel && !focusMode ? "secondary" : "ghost"}
+          size="sm"
+          onClick={toggleVibecodingPanel}
+          title="Tampilkan atau sembunyikan panel AI"
+        >
+          AI Panel
         </Button>
 
         <Button

@@ -231,7 +231,7 @@ export function MediaPanel() {
   );
 
   return (
-    <aside className="flex flex-col h-full border-r border-border bg-surface w-[300px] shrink-0 min-h-0">
+    <aside className="flex flex-col h-full border-r border-border bg-surface w-full shrink-0 min-h-0">
       <div className="flex border-b border-border shrink-0">
         {PANEL_TABS.map((tab) => (
           <button

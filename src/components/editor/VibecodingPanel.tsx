@@ -197,7 +197,7 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
       : "Local";
 
   return (
-    <aside className="flex flex-col border-l border-border bg-surface w-[360px] shrink-0">
+    <aside className="flex h-full flex-col border-l border-border bg-surface w-full shrink-0">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20">
           <Wand2 className="h-4 w-4 text-accent-glow" />

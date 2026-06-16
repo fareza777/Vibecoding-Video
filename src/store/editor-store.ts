@@ -43,6 +43,9 @@ interface EditorState {
   project: EditorProject;
   isPlaying: boolean;
   activePanel: PanelId;
+  showMediaPanel: boolean;
+  showVibecodingPanel: boolean;
+  focusMode: boolean;
   selectedClipId: string | null;
   vibecodingMessages: VibeMessage[];
   isVibecodingProcessing: boolean;
@@ -63,8 +66,14 @@ interface EditorState {
   setPlayhead: (time: number) => void;
   setIsPlaying: (playing: boolean) => void;
   setActivePanel: (panel: PanelId) => void;
+  toggleMediaPanel: () => void;
+  toggleVibecodingPanel: () => void;
+  toggleFocusMode: () => void;
   setSelectedClip: (clipId: string | null) => void;
   setTimelineZoom: (zoom: number) => void;
+  setSidebarWidth: (width: number) => void;
+  setVibecodingWidth: (width: number) => void;
+  setTimelineHeight: (height: number) => void;
   toggleSnap: () => void;
   addAsset: (asset: MediaAsset) => void;
   updateAsset: (assetId: string, updates: Partial<MediaAsset>) => void;
@@ -134,6 +143,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   project: createDefaultProject(),
   isPlaying: false,
   activePanel: "media",
+  showMediaPanel: true,
+  showVibecodingPanel: true,
+  focusMode: false,
   selectedClipId: null,
   vibecodingMessages: INITIAL_MESSAGES,
   isVibecodingProcessing: false,
@@ -167,12 +179,48 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setActivePanel: (panel) => set({ activePanel: panel }),
 
+  toggleMediaPanel: () =>
+    set((state) => ({
+      showMediaPanel: !state.showMediaPanel,
+      focusMode: false,
+    })),
+
+  toggleVibecodingPanel: () =>
+    set((state) => ({
+      showVibecodingPanel: !state.showVibecodingPanel,
+      focusMode: false,
+    })),
+
+  toggleFocusMode: () =>
+    set((state) => ({
+      focusMode: !state.focusMode,
+    })),
+
   setSelectedClip: (clipId) => set({ selectedClipId: clipId }),
 
   setTimelineZoom: (zoom) =>
     set((state) => ({
       project: { ...state.project, zoom: Math.max(0.25, Math.min(4, zoom)) },
     })),
+
+  setSidebarWidth: (width) =>
+    set({
+      sidebarWidth: Math.max(240, Math.min(420, Math.round(width))),
+      focusMode: false,
+      showMediaPanel: true,
+    }),
+
+  setVibecodingWidth: (width) =>
+    set({
+      vibecodingWidth: Math.max(300, Math.min(520, Math.round(width))),
+      focusMode: false,
+      showVibecodingPanel: true,
+    }),
+
+  setTimelineHeight: (height) =>
+    set({
+      timelineHeight: Math.max(170, Math.min(420, Math.round(height))),
+    }),
 
   toggleSnap: () => set((state) => ({ snapEnabled: !state.snapEnabled })),
 
