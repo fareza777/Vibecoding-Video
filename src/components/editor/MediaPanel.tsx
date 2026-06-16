@@ -102,6 +102,7 @@ export function MediaPanel() {
   const [importing, setImporting] = useState(false);
   const [loadingAssets, setLoadingAssets] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [autoAddToTimeline, setAutoAddToTimeline] = useState(false);
   const [panelHint, setPanelHint] = useState<string | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
@@ -190,7 +191,9 @@ export function MediaPanel() {
 
         addAsset(asset);
         markLoading(assetId, true);
-        addToTimeline(asset);
+        if (autoAddToTimeline) {
+          addToTimeline(asset);
+        }
         setSelectedAssetId(assetId);
 
         void processImportedMedia(projectId, assetId, file, url, type, {
@@ -207,11 +210,16 @@ export function MediaPanel() {
       }
 
       setImporting(false);
+      setPanelHint(
+        autoAddToTimeline
+          ? `${fileList.length} media diimport dan langsung masuk timeline`
+          : `${fileList.length} media diimport. Klik "Tambah ke timeline" saat siap.`
+      );
       if (fileInputRef.current) fileInputRef.current.value = "";
 
       void yieldToMain();
     },
-    [addAsset, addToTimeline, finalizeAssetImport, markLoading, projectId]
+    [addAsset, addToTimeline, autoAddToTimeline, finalizeAssetImport, markLoading, projectId]
   );
 
   const handleDrop = useCallback(
@@ -279,6 +287,28 @@ export function MediaPanel() {
               {importing ? "Importing..." : "Import Media"}
             </Button>
 
+            <button
+              type="button"
+              onClick={() => setAutoAddToTimeline((prev) => !prev)}
+              className={cn(
+                "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-[11px] transition-colors",
+                autoAddToTimeline
+                  ? "border-cyan/30 bg-cyan/5 text-foreground"
+                  : "border-border/60 bg-muted/30 text-muted-foreground"
+              )}
+            >
+              <span>Auto-add ke timeline</span>
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 font-mono text-[10px]",
+                  autoAddToTimeline
+                    ? "bg-cyan/15 text-cyan"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {autoAddToTimeline ? "ON" : "OFF"}
+              </span>
+            </button>
           </div>
 
           <div
@@ -301,6 +331,9 @@ export function MediaPanel() {
                   <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                   <p className="text-xs text-muted-foreground">
                     Drop file atau klik untuk import
+                  </p>
+                  <p className="mt-1 max-w-[190px] text-[10px] text-muted-foreground/80">
+                    Media tidak otomatis masuk timeline kecuali Auto-add aktif
                   </p>
                 </div>
               ) : (
@@ -344,18 +377,33 @@ export function MediaPanel() {
                               : `${formatDuration(asset.duration)} · ${(asset.size / 1024 / 1024).toFixed(1)} MB`}
                             {onTimeline ? " · timeline" : ""}
                           </p>
-                          <button
-                            type="button"
-                            title={`Hapus ${asset.name}`}
-                            aria-label={`Hapus ${asset.name}`}
-                            className="mt-1.5 p-1 rounded-md text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveAsset(asset.id);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="mt-2 flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={onTimeline ? "secondary" : "outline"}
+                              className="h-6 px-2 text-[10px]"
+                              disabled={onTimeline}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToTimeline(asset);
+                              }}
+                            >
+                              {onTimeline ? "Sudah di timeline" : "Tambah ke timeline"}
+                            </Button>
+                            <button
+                              type="button"
+                              title={`Hapus ${asset.name}`}
+                              aria-label={`Hapus ${asset.name}`}
+                              className="p-1 rounded-md text-red-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveAsset(asset.id);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

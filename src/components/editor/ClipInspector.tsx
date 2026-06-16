@@ -82,9 +82,25 @@ export function ClipInspector() {
   if (!clip) {
     return (
       <div className="shrink-0 border-t border-border bg-surface/80 px-4 py-3">
-        <p className="text-xs text-muted-foreground text-center">
-          Klik clip di timeline untuk mengedit volume, kecepatan, opacity, dan efek
-        </p>
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+          <div>
+            <p className="text-xs font-medium text-foreground">Inspector siap dipakai</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Pilih clip di timeline untuk mengatur volume, opacity, speed, teks, dan efek.
+            </p>
+          </div>
+          <div className="flex gap-2 text-[10px] text-muted-foreground">
+            <span className="rounded-full border border-border bg-surface px-2 py-1">
+              Double-click asset
+            </span>
+            <span className="rounded-full border border-border bg-surface px-2 py-1">
+              Klik clip
+            </span>
+            <span className="rounded-full border border-border bg-surface px-2 py-1">
+              Edit di sini
+            </span>
+          </div>
+        </div>
       </div>
     );
   }

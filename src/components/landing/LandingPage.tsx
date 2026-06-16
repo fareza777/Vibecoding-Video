@@ -67,10 +67,28 @@ const features = [
 ];
 
 const stats = [
-  { value: "7", label: "Fase shipped" },
-  { value: "50+", label: "Undo steps" },
-  { value: "4K", label: "Export ready" },
-  { value: "0", label: "Install required" },
+  { value: "4K", label: "Export siap tayang" },
+  { value: "ID/EN", label: "Prompt natural language" },
+  { value: "Cloud", label: "Sync proyek & media" },
+  { value: "0", label: "Install desktop" },
+];
+
+const workflows = [
+  {
+    icon: Film,
+    title: "Drop media dan mulai kasar",
+    desc: "Import video, audio, atau gambar lalu susun timeline dasar dalam hitungan menit.",
+  },
+  {
+    icon: MessageSquareText,
+    title: "Ketik instruksi seperti editor manusia",
+    desc: 'Gunakan prompt seperti "potong tengah", "tambah fade in", atau "buat intro 5 detik".',
+  },
+  {
+    icon: Wand2,
+    title: "Polish dan export final",
+    desc: "Rapikan efek, overlay teks, mix audio, lalu render final langsung dari browser.",
+  },
 ];
 
 function EditorMockup() {
@@ -207,6 +225,15 @@ export function LandingPage() {
               — cukup ketik &ldquo;potong 0:30&rdquo; atau &ldquo;tambah fade in&rdquo;.
             </motion.p>
 
+            <motion.p
+              custom={2.5}
+              variants={fadeUp}
+              {...motionProps}
+              className="mt-4 max-w-lg text-sm text-muted-foreground/90"
+            >
+              Cocok untuk draft Shorts, cutdown webinar, podcast clips, dan konten sosial yang perlu cepat jadi.
+            </motion.p>
+
             <motion.div
               custom={3}
               variants={fadeUp}
@@ -313,6 +340,45 @@ export function LandingPage() {
               <h3 className="text-lg font-semibold mb-2">{feat.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {feat.desc}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-24 md:pb-28">
+        <div className="mb-10 max-w-2xl">
+          <p className="font-mono text-xs text-cyan uppercase tracking-widest mb-3">
+            Workflow
+          </p>
+          <h2 className="text-3xl md:text-4xl font-semibold tracking-tight">
+            Dari ide ke video final dalam 3 langkah
+          </h2>
+          <p className="mt-4 text-muted-foreground text-lg">
+            Fokus pada hasil: cepat masuk, cepat edit, cepat tayang.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {workflows.map((item, i) => (
+            <motion.div
+              key={item.title}
+              custom={i}
+              variants={fadeUp}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="rounded-2xl glass-panel p-6"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan/15 bg-cyan/5 mb-5">
+                <item.icon className="h-5 w-5 text-cyan" />
+              </div>
+              <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-cyan/80 mb-2">
+                Langkah 0{i + 1}
+              </p>
+              <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {item.desc}
               </p>
             </motion.div>
           ))}

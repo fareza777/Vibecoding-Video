@@ -59,6 +59,8 @@ export function PreviewPanel() {
     : null;
 
   const textOverlays = getActiveTextOverlays(clips, playhead);
+  const hasAssets = assets.length > 0;
+  const hasTimelineClips = clips.length > 0;
   const showVideo = activeAsset?.type === "video";
   const showImage = activeAsset?.type === "image";
   const shouldBindVideo =
@@ -241,14 +243,19 @@ export function PreviewPanel() {
             />
 
             {showVideo && !shouldBindVideo && activeAsset && (
-              <div className="flex flex-col items-center gap-3 text-muted-foreground py-8 px-6 max-w-[280px]">
+              <div className="flex flex-col items-center gap-3 text-muted-foreground py-8 px-6 max-w-[320px]">
                 <div className="h-16 w-16 rounded-2xl border border-cyan/20 bg-cyan/5 flex items-center justify-center">
                   <Play className="h-7 w-7 text-cyan/60 ml-1" />
                 </div>
-                <p className="text-xs text-center">{activeAsset.name}</p>
-                <p className="text-[10px] text-center opacity-60">
-                  Tekan Play untuk memuat preview
-                </p>
+                <div className="space-y-1 text-center">
+                  <p className="text-xs text-foreground">{activeAsset.name}</p>
+                  <p className="text-[10px] opacity-70">
+                    Preview siap dimuat. Tekan Play atau geser scrubber untuk menampilkan frame pertama.
+                  </p>
+                </div>
+                <div className="rounded-lg border border-cyan/15 bg-cyan/5 px-3 py-2 text-[10px] text-cyan/90">
+                  Tip: setelah preview pernah dimuat, perpindahan scrub akan terasa lebih natural.
+                </div>
               </div>
             )}
 
@@ -263,16 +270,48 @@ export function PreviewPanel() {
             )}
 
             {!activeClip && (
-              <div className="flex flex-col items-center gap-3 text-muted-foreground py-8 px-6">
+              <div className="flex flex-col items-center gap-4 text-muted-foreground py-8 px-6 max-w-[360px]">
                 <div className="h-20 w-20 rounded-2xl border-2 border-dashed border-border flex items-center justify-center">
                   <svg className="h-8 w-8 opacity-30" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 </div>
-                <p className="text-sm font-medium">Preview Area</p>
-                <p className="text-xs opacity-60 text-center">
-                  Import media — otomatis masuk timeline
-                </p>
+                <div className="space-y-1 text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    {hasAssets
+                      ? hasTimelineClips
+                        ? "Tidak ada clip di posisi playhead"
+                        : "Media sudah siap dipakai"
+                      : "Mulai proyek pertama Anda"}
+                  </p>
+                  <p className="text-xs opacity-70 text-center">
+                    {hasAssets
+                      ? hasTimelineClips
+                        ? "Geser playhead ke area clip atau pilih clip dari timeline untuk melihat preview."
+                        : "Tambahkan media dari panel kiri ke timeline, lalu tekan Play untuk memulai preview."
+                      : "Import media, tambahkan ke timeline, lalu gunakan Vibecoding untuk mempercepat editing."}
+                  </p>
+                </div>
+                <div className="grid w-full gap-2 text-left">
+                  <div className="rounded-xl border border-border/70 bg-surface/70 px-3 py-2">
+                    <p className="text-[10px] font-medium text-foreground">1. Import media</p>
+                    <p className="mt-1 text-[10px] opacity-70">
+                      Gunakan panel kiri untuk upload video, audio, atau gambar.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-surface/70 px-3 py-2">
+                    <p className="text-[10px] font-medium text-foreground">2. Susun timeline</p>
+                    <p className="mt-1 text-[10px] opacity-70">
+                      Tambahkan asset ke timeline, lalu pilih clip untuk mengatur efek dan parameter.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border/70 bg-surface/70 px-3 py-2">
+                    <p className="text-[10px] font-medium text-foreground">3. Gunakan AI</p>
+                    <p className="mt-1 text-[10px] opacity-70">
+                      Coba prompt seperti "buat intro 5 detik" atau "tambah fade in".
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 
