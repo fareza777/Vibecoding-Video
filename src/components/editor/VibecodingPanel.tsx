@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
   Brain,
+  History,
   Loader2,
+  RotateCcw,
   Send,
   Settings,
   Sparkles,
@@ -15,6 +17,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { loadAiSettings, saveAiSettings } from "@/lib/ai-settings";
 import { buildVibecodingContext } from "@/lib/vibecoding-context";
+import {
+  clearPromptHistory,
+  loadPromptHistory,
+  savePromptToHistory,
+} from "@/lib/vibecoding-history";
 import { applyVibeActions } from "@/lib/vibecoding-engine";
 import { requestVibecoding } from "@/lib/vibecoding-client";
 import { cn } from "@/lib/utils";
@@ -30,6 +37,25 @@ const QUICK_PROMPTS = [
   "Siapkan untuk export YouTube 1080p",
 ];
 
+const WORKFLOW_PRESETS = [
+  {
+    label: "Hook 3 detik",
+    prompt: "Buat hook 3 detik pertama yang lebih kuat dengan cut cepat dan fade in ringan",
+  },
+  {
+    label: "Rapikan podcast",
+    prompt: "Rapikan podcast clip ini, potong jeda yang terasa lambat dan siapkan subtitle besar",
+  },
+  {
+    label: "Cutdown webinar",
+    prompt: "Buat versi cutdown webinar yang lebih ringkas dan fokus pada bagian paling bernilai",
+  },
+  {
+    label: "Siap upload",
+    prompt: "Cek timeline ini lalu siapkan untuk export final yang aman diupload",
+  },
+];
+
 interface VibecodingPanelProps {
   onOpenSettings?: () => void;
 }
@@ -38,6 +64,7 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
   const [input, setInput] = useState("");
   const [aiSettings, setAiSettings] = useState<AiSettings>(loadAiSettings());
   const [aiConnected, setAiConnected] = useState(false);
+  const [promptHistory, setPromptHistory] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -87,14 +114,20 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
     return () => window.removeEventListener("vibecoding:focus", handler);
   }, []);
 
+  useEffect(() => {
+    setPromptHistory(loadPromptHistory());
+  }, []);
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || isProcessing) return;
+      const normalized = text.trim();
 
       const settings = loadAiSettings();
       setAiSettings(settings);
+      setPromptHistory(savePromptToHistory(normalized));
 
-      addVibeMessage({ role: "user", content: text.trim() });
+      addVibeMessage({ role: "user", content: normalized });
       setInput("");
       setVibecodingProcessing(true);
 
@@ -109,7 +142,7 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
 
       try {
         const result = await requestVibecoding({
-          message: text,
+          message: normalized,
           context,
           settings,
           history,
@@ -303,6 +336,40 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
       </ScrollArea>
 
       <div className="p-3 border-t border-border space-y-2">
+        {promptHistory.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                <History className="h-3 w-3" />
+                Riwayat cepat
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  clearPromptHistory();
+                  setPromptHistory([]);
+                }}
+                className="text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                Bersihkan
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {promptHistory.map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => sendMessage(prompt)}
+                  disabled={isProcessing}
+                  className="max-w-full truncate rounded-full border border-border bg-surface px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:border-cyan/20 hover:text-foreground disabled:opacity-50"
+                  title={prompt}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-1">
           {QUICK_PROMPTS.map((prompt) => (
             <button
@@ -314,6 +381,29 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
               {prompt}
             </button>
           ))}
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <RotateCcw className="h-3 w-3" />
+            Preset workflow
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {WORKFLOW_PRESETS.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => sendMessage(item.prompt)}
+                disabled={isProcessing}
+                className="rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-left transition-colors hover:border-cyan/25 hover:bg-muted disabled:opacity-50"
+              >
+                <p className="text-[10px] font-medium text-foreground">{item.label}</p>
+                <p className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
+                  {item.prompt}
+                </p>
+              </button>
+            ))}
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex gap-2">

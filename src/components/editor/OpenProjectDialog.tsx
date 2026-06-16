@@ -8,6 +8,7 @@ import {
   CloudUpload,
   Clock,
   FileJson,
+  FileVideo,
   FolderOpen,
   Loader2,
   Plus,
@@ -33,6 +34,10 @@ import {
   persistProjectMedia,
   type RecentProjectMeta,
 } from "@/lib/project-persistence";
+import {
+  createProjectFromTemplate,
+  PROJECT_TEMPLATES,
+} from "@/lib/editor-templates";
 import { useEditorStore } from "@/store/editor-store";
 
 interface OpenProjectDialogProps {
@@ -185,6 +190,14 @@ export function OpenProjectDialog({
     onOpenChange(false);
   };
 
+  const handleTemplateProject = (templateId: string) => {
+    const template = PROJECT_TEMPLATES.find((item) => item.id === templateId);
+    if (!template) return;
+    const next = createProjectFromTemplate(template);
+    loadProject(next.project, next.exportSettings);
+    onOpenChange(false);
+  };
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -235,6 +248,47 @@ export function OpenProjectDialog({
                 <span className="text-xs font-medium">New Project</span>
               </Button>
             </div>
+
+            <section className="space-y-2">
+              <h3 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <FileVideo className="h-3 w-3" />
+                Project Templates
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {PROJECT_TEMPLATES.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => handleTemplateProject(template.id)}
+                    disabled={loading}
+                    className={cn(
+                      "rounded-xl border border-border bg-muted/40 px-3 py-3 text-left transition-colors hover:border-cyan/30 hover:bg-muted/70",
+                      loading && "opacity-50 pointer-events-none"
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-foreground">
+                        {template.name}
+                      </p>
+                      <span className="rounded-full bg-surface px-2 py-0.5 text-[9px] font-mono text-muted-foreground">
+                        {template.resolution.width}×{template.resolution.height}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground leading-relaxed">
+                      {template.description}
+                    </p>
+                    <div className="mt-2 flex items-center gap-1.5 text-[9px] text-muted-foreground">
+                      <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+                        {template.fps} fps
+                      </span>
+                      <span className="rounded-full border border-border bg-surface px-2 py-0.5">
+                        {Math.round(template.duration)} dtk
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
 
             {recent.length > 0 && (
               <section className="space-y-2">
