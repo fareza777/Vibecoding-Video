@@ -125,6 +125,7 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
           pushHistory,
           selectedClipId,
           clips: project.clips,
+          getClips: () => useEditorStore.getState().project.clips,
           playhead: project.playhead,
         });
 

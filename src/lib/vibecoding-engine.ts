@@ -15,6 +15,7 @@ export interface VibeApplyContext {
   pushHistory: () => void;
   selectedClipId: string | null;
   clips: TimelineClip[];
+  getClips?: () => TimelineClip[];
   playhead: number;
 }
 
@@ -242,6 +243,9 @@ export function applyVibeActions(
 ): VibeAction[] {
   if (actions.length > 0) context.pushHistory();
 
+  const readClips = (): TimelineClip[] =>
+    context.getClips ? context.getClips() : context.clips;
+
   return actions.map((action) => {
     const vibeAction: VibeAction = {
       id: crypto.randomUUID(),
@@ -256,7 +260,7 @@ export function applyVibeActions(
     switch (action.type) {
       case "effect": {
         if (!clipId) return vibeAction;
-        const clip = context.clips.find((c) => c.id === clipId);
+        const clip = readClips().find((c) => c.id === clipId);
         if (!clip) return vibeAction;
         context.updateClip(clipId, {
           effects: [
@@ -274,7 +278,7 @@ export function applyVibeActions(
 
       case "speed": {
         if (!clipId) return vibeAction;
-        const clip = context.clips.find((c) => c.id === clipId);
+        const clip = readClips().find((c) => c.id === clipId);
         if (!clip) return vibeAction;
         context.updateClip(clipId, {
           effects: [
@@ -377,7 +381,7 @@ export function applyVibeActions(
 
       case "transition": {
         if (!clipId) return vibeAction;
-        const clip = context.clips.find((c) => c.id === clipId);
+        const clip = readClips().find((c) => c.id === clipId);
         if (!clip) return vibeAction;
         context.updateClip(clipId, {
           effects: [

@@ -20,14 +20,29 @@ export function useAutoSave() {
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(async () => {
+    const flush = () => {
       const project = projectRef.current;
       const exportSettings = exportRef.current;
-      await persistProjectMedia(project.id, project.assets);
+      void persistProjectMedia(project.id, project.assets);
       saveAutosave(project, exportSettings);
       setLastSaved(Date.now());
-    }, AUTOSAVE_INTERVAL_MS);
+    };
 
-    return () => clearInterval(timer);
+    const timer = setInterval(flush, AUTOSAVE_INTERVAL_MS);
+
+    const onBeforeUnload = () => {
+      flush();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    const onHide = () => {
+      flush();
+    };
+    document.addEventListener("visibilitychange", onHide);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onHide);
+    };
   }, [projectId, setLastSaved]);
 }
