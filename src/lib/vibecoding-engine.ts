@@ -246,6 +246,145 @@ export function applyVibeActions(
   const readClips = (): TimelineClip[] =>
     context.getClips ? context.getClips() : context.clips;
 
+  // First pass: classify actions by clip + type, accumulate all effects per clip.
+  // This avoids losing earlier actions when later actions re-read stale clip.effects.
+  const effectsByClip = new Map<string, Array<{ type: string; params: Record<string, unknown> }>>();
+  const textOverlaysToAdd: Array<{ params: Record<string, unknown>; description: string }> = [];
+  const deleteClipIds: string[] = [];
+  const playheadTargets: number[] = [];
+  const splits: Array<{ time: number; clipId?: string }> = [];
+  const moveUpdates = new Map<string, { startTime?: number; trackId?: string }>();
+  const volumeUpdates = new Map<string, number>();
+  const trimUpdates = new Map<string, { trimStart: number; trimEnd: number; duration: number }>();
+  let exportRequested = false;
+
+  for (const action of actions) {
+    const clipId = resolveClipId(action.params, context);
+    switch (action.type) {
+      case "effect":
+      case "speed":
+      case "transition": {
+        if (!clipId) break;
+        const arr = effectsByClip.get(clipId) ?? [];
+        arr.push({ type: action.params.effect as string ?? action.type, params: action.params });
+        effectsByClip.set(clipId, arr);
+        break;
+      }
+      case "volume": {
+        if (!clipId) break;
+        if (typeof action.params.volume === "number") {
+          volumeUpdates.set(clipId, action.params.volume);
+        }
+        break;
+      }
+      case "trim": {
+        if (!clipId) break;
+        const start = action.params.start as number;
+        const end = action.params.end as number;
+        if (typeof start === "number" && typeof end === "number") {
+          trimUpdates.set(clipId, { trimStart: start, trimEnd: end, duration: end - start });
+        }
+        break;
+      }
+      case "text-overlay": {
+        textOverlaysToAdd.push({ params: action.params, description: action.description });
+        break;
+      }
+      case "move-clip": {
+        if (!clipId) break;
+        const upd: { startTime?: number; trackId?: string } = {};
+        if (typeof action.params.startTime === "number") upd.startTime = action.params.startTime;
+        if (typeof action.params.trackId === "string") upd.trackId = action.params.trackId;
+        moveUpdates.set(clipId, { ...moveUpdates.get(clipId), ...upd });
+        break;
+      }
+      case "delete-clip": {
+        const targetId = clipId ?? context.selectedClipId;
+        if (targetId) deleteClipIds.push(targetId);
+        break;
+      }
+      case "set-playhead": {
+        if (typeof action.params.time === "number") {
+          playheadTargets.push(action.params.time);
+        }
+        break;
+      }
+      case "split": {
+        const time = (action.params.time as number) ?? context.playhead;
+        splits.push({ time, clipId: clipId ?? undefined });
+        break;
+      }
+      case "export":
+        exportRequested = true;
+        break;
+    }
+  }
+
+  // Second pass: apply all accumulated changes per clip atomically.
+  // Order: 1) effects, 2) volume, 3) trim, 4) move (each reads fresh clips).
+  for (const [clipId, newEffects] of effectsByClip) {
+    const clip = readClips().find((c) => c.id === clipId);
+    if (!clip) continue;
+    const effectObjects = newEffects.map((e) => ({
+      id: crypto.randomUUID(),
+      type: e.type as TimelineClip["effects"][0]["type"],
+      params: e.params as Record<string, string | number | boolean>,
+      enabled: true,
+    }));
+    context.updateClip(clipId, { effects: [...clip.effects, ...effectObjects] });
+  }
+  for (const [clipId, volume] of volumeUpdates) {
+    context.updateClip(clipId, { volume });
+  }
+  for (const [clipId, trim] of trimUpdates) {
+    context.updateClip(clipId, trim);
+  }
+  for (const [clipId, move] of moveUpdates) {
+    context.updateClip(clipId, move);
+  }
+  // Text overlays add new clips
+  for (const overlay of textOverlaysToAdd) {
+    context.addClip(
+      {
+        assetId: "text-generated",
+        trackId: "track-text-1",
+        startTime: (overlay.params.startTime as number) ?? context.playhead,
+        duration: (overlay.params.duration as number) ?? 5,
+        trimStart: 0,
+        trimEnd: (overlay.params.duration as number) ?? 5,
+        label: overlay.params.text as string,
+        color: "#f59e0b",
+        opacity: 1,
+        volume: 1,
+        effects: [
+          {
+            id: crypto.randomUUID(),
+            type: "text-overlay",
+            params: {
+              text: overlay.params.text as string,
+              position: (overlay.params.position as string) ?? "center",
+            },
+            enabled: true,
+          },
+        ],
+      },
+      true
+    );
+  }
+  // Splits (one at a time, reading fresh state between)
+  for (const split of splits) {
+    context.splitClipAtTime(split.time, split.clipId, true);
+  }
+  // Deletes
+  for (const id of deleteClipIds) {
+    context.removeClip(id, true);
+  }
+  // Set playhead (last, so it reflects the final timeline)
+  if (playheadTargets.length > 0) {
+    context.setPlayhead(playheadTargets[playheadTargets.length - 1]);
+  }
+
+  // Build result for each action
   return actions.map((action) => {
     const vibeAction: VibeAction = {
       id: crypto.randomUUID(),
@@ -257,149 +396,42 @@ export function applyVibeActions(
 
     const clipId = resolveClipId(action.params, context);
 
+    // Mark applied based on whether the action was processed
     switch (action.type) {
-      case "effect": {
+      case "effect":
+      case "speed":
+      case "transition": {
         if (!clipId) return vibeAction;
-        const clip = readClips().find((c) => c.id === clipId);
-        if (!clip) return vibeAction;
-        context.updateClip(clipId, {
-          effects: [
-            ...clip.effects,
-            {
-              id: crypto.randomUUID(),
-              type: action.params.effect as TimelineClip["effects"][0]["type"],
-              params: action.params as Record<string, string | number | boolean>,
-              enabled: true,
-            },
-          ],
-        });
-        return { ...vibeAction, applied: true };
-      }
-
-      case "speed": {
-        if (!clipId) return vibeAction;
-        const clip = readClips().find((c) => c.id === clipId);
-        if (!clip) return vibeAction;
-        context.updateClip(clipId, {
-          effects: [
-            ...clip.effects,
-            {
-              id: crypto.randomUUID(),
-              type: "speed",
-              params: action.params as Record<string, string | number | boolean>,
-              enabled: true,
-            },
-          ],
-        });
-        return { ...vibeAction, applied: true };
-      }
-
-      case "volume": {
-        if (!clipId) return vibeAction;
-        context.updateClip(clipId, {
-          volume: action.params.volume as number,
-        });
-        return { ...vibeAction, applied: true };
-      }
-
-      case "trim": {
-        if (!clipId) return vibeAction;
-        const start = action.params.start as number;
-        const end = action.params.end as number;
-        context.updateClip(clipId, {
-          trimStart: start,
-          trimEnd: end,
-          duration: end - start,
-        });
-        return { ...vibeAction, applied: true };
-      }
-
-      case "text-overlay": {
-        context.addClip(
-          {
-          assetId: "text-generated",
-          trackId: "track-text-1",
-          startTime: (action.params.startTime as number) ?? context.playhead,
-          duration: (action.params.duration as number) ?? 5,
-          trimStart: 0,
-          trimEnd: (action.params.duration as number) ?? 5,
-          label: action.params.text as string,
-          color: "#f59e0b",
-          opacity: 1,
-          volume: 1,
-          effects: [
-            {
-              id: crypto.randomUUID(),
-              type: "text-overlay",
-              params: {
-                text: action.params.text as string,
-                position: (action.params.position as string) ?? "center",
-              },
-              enabled: true,
-            },
-          ],
-          },
-          true
-        );
-        return { ...vibeAction, applied: true };
-      }
-
-      case "move-clip": {
-        if (!clipId) return vibeAction;
-        const updates: Partial<TimelineClip> = {};
-        if (typeof action.params.startTime === "number") {
-          updates.startTime = action.params.startTime;
+        if (action.type === "transition") {
+          return { ...vibeAction, applied: false, description: `${vibeAction.description} (akan diterapkan saat export)` };
         }
-        if (typeof action.params.trackId === "string") {
-          updates.trackId = action.params.trackId;
-        }
-        context.updateClip(clipId, updates);
         return { ...vibeAction, applied: true };
       }
-
+      case "volume":
+        if (!clipId) return vibeAction;
+        return { ...vibeAction, applied: true };
+      case "trim":
+        if (!clipId) return vibeAction;
+        return { ...vibeAction, applied: true };
+      case "text-overlay":
+        return { ...vibeAction, applied: true };
+      case "move-clip":
+        if (!clipId) return vibeAction;
+        return { ...vibeAction, applied: true };
       case "delete-clip": {
         const targetId = clipId ?? context.selectedClipId;
         if (!targetId) return vibeAction;
-        context.removeClip(targetId, true);
         return { ...vibeAction, applied: true };
       }
-
-      case "set-playhead": {
-        const time = action.params.time as number;
-        if (typeof time === "number") {
-          context.setPlayhead(time);
+      case "set-playhead":
+        if (typeof action.params.time === "number") {
           return { ...vibeAction, applied: true };
         }
         return vibeAction;
-      }
-
-      case "split": {
-        const time = (action.params.time as number) ?? context.playhead;
-        context.splitClipAtTime(time, clipId ?? undefined, true);
+      case "split":
         return { ...vibeAction, applied: true };
-      }
-
-      case "transition": {
-        if (!clipId) return vibeAction;
-        const clip = readClips().find((c) => c.id === clipId);
-        if (!clip) return vibeAction;
-        context.updateClip(clipId, {
-          effects: [
-            ...clip.effects,
-            {
-              id: crypto.randomUUID(),
-              type: "transition",
-              params: action.params as Record<string, string | number | boolean>,
-              enabled: true,
-            },
-          ],
-        });
-        return { ...vibeAction, applied: true };
-      }
-
       case "export":
         return { ...vibeAction, applied: true };
-
       default:
         return vibeAction;
     }
