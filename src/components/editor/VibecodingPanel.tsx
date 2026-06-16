@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { loadAiSettings } from "@/lib/ai-settings";
+import { loadAiSettings, saveAiSettings } from "@/lib/ai-settings";
 import { buildVibecodingContext } from "@/lib/vibecoding-context";
 import { applyVibeActions } from "@/lib/vibecoding-engine";
 import { requestVibecoding } from "@/lib/vibecoding-client";
@@ -60,7 +60,16 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
     setAiSettings(settings);
     fetch("/api/vibecoding/status")
       .then((r) => r.json())
-      .then((d) => setAiConnected(Boolean(d.hasServerKey) || settings.apiKey.length > 10))
+      .then((d) => {
+        const serverHasKey = Boolean(d.hasServerKey);
+        const userHasKey = settings.apiKey.length > 10;
+        setAiConnected(serverHasKey || userHasKey);
+        if (serverHasKey && !settings.enabled) {
+          const fixed = { ...settings, enabled: true };
+          saveAiSettings(fixed);
+          setAiSettings(fixed);
+        }
+      })
       .catch(() => setAiConnected(settings.apiKey.length > 10));
   }, []);
 
