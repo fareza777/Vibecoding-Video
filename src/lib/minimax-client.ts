@@ -97,20 +97,34 @@ export async function callMiniMaxVibecoding(opts: {
 
   const cleaned = stripThinkingContent(rawContent);
   const jsonText = extractJsonFromText(cleaned);
-  const jsonParsed = JSON.parse(jsonText);
-  const validated = vibeResponseSchema.safeParse(jsonParsed);
+  let parsedJson: unknown = null;
+  try {
+    parsedJson = JSON.parse(jsonText);
+  } catch {
+    parsedJson = null;
+  }
 
-  if (!validated.success) {
-    throw new Error("Invalid JSON structure from MiniMax");
+  if (parsedJson && typeof parsedJson === "object") {
+    const validated = vibeResponseSchema.safeParse(parsedJson);
+    if (validated.success) {
+      return {
+        message: validated.data.message,
+        actions: validated.data.actions.map((a) => ({
+          type: a.type,
+          description: a.description,
+          params: a.params,
+        })),
+        usage: {
+          inputTokens: data.usage?.prompt_tokens ?? 0,
+          outputTokens: data.usage?.completion_tokens ?? 0,
+        },
+      };
+    }
   }
 
   return {
-    message: validated.data.message,
-    actions: validated.data.actions.map((a) => ({
-      type: a.type,
-      description: a.description,
-      params: a.params,
-    })),
+    message: cleaned.trim() || "MiniMax menjawab tapi tidak dalam format yang diharapkan.",
+    actions: [],
     usage: {
       inputTokens: data.usage?.prompt_tokens ?? 0,
       outputTokens: data.usage?.completion_tokens ?? 0,

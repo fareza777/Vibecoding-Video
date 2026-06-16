@@ -55,6 +55,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const handleSave = useCallback(() => {
     saveAiSettings(settings);
     saveCloudSettings(cloudSettings);
+    window.dispatchEvent(new CustomEvent("vibecoding:cloud-settings-changed"));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }, [settings, cloudSettings]);

@@ -4,23 +4,6 @@ import { useEffect } from "react";
 import { useEditorStore } from "@/store/editor-store";
 
 export function useKeyboardShortcuts() {
-  const setIsPlaying = useEditorStore((s) => s.setIsPlaying);
-  const isPlaying = useEditorStore((s) => s.isPlaying);
-  const setPlayhead = useEditorStore((s) => s.setPlayhead);
-  const playhead = useEditorStore((s) => s.project.playhead);
-  const duration = useEditorStore((s) => s.project.duration);
-  const fps = useEditorStore((s) => s.project.fps);
-  const selectedClipId = useEditorStore((s) => s.selectedClipId);
-  const removeClip = useEditorStore((s) => s.removeClip);
-  const splitClipAtPlayhead = useEditorStore((s) => s.splitClipAtPlayhead);
-  const setTimelineZoom = useEditorStore((s) => s.setTimelineZoom);
-  const zoom = useEditorStore((s) => s.project.zoom);
-  const undo = useEditorStore((s) => s.undo);
-  const redo = useEditorStore((s) => s.redo);
-  const toggleSnap = useEditorStore((s) => s.toggleSnap);
-  const setSelectedClip = useEditorStore((s) => s.setSelectedClip);
-  const saveProject = useEditorStore((s) => s.saveProject);
-
   useEffect(() => {
     const isInputFocused = () => {
       const el = document.activeElement;
@@ -29,48 +12,48 @@ export function useKeyboardShortcuts() {
       return tag === "input" || tag === "textarea" || (el as HTMLElement).isContentEditable;
     };
 
-    const frameStep = 1 / fps;
-
     const handler = (e: KeyboardEvent) => {
       if (isInputFocused()) return;
 
-      const key = e.key.toLowerCase();
+      const s = useEditorStore.getState();
       const ctrl = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      const frameStep = 1 / s.project.fps;
 
       if (key === " " && !ctrl) {
         e.preventDefault();
-        setIsPlaying(!isPlaying);
+        s.setIsPlaying(!s.isPlaying);
         return;
       }
 
       if (key === "delete" || key === "backspace") {
-        if (selectedClipId) {
+        if (s.selectedClipId) {
           e.preventDefault();
-          removeClip(selectedClipId);
+          s.removeClip(s.selectedClipId);
         }
         return;
       }
 
       if (key === "s" && !ctrl) {
         e.preventDefault();
-        splitClipAtPlayhead();
+        s.splitClipAtPlayhead();
         return;
       }
 
       if (key === "n" && !ctrl) {
         e.preventDefault();
-        toggleSnap();
+        s.toggleSnap();
         return;
       }
 
       if (key === "escape") {
-        setSelectedClip(null);
+        s.setSelectedClip(null);
         return;
       }
 
       if (ctrl && key === "s") {
         e.preventDefault();
-        saveProject();
+        s.saveProject();
         return;
       }
 
@@ -82,92 +65,75 @@ export function useKeyboardShortcuts() {
 
       if (ctrl && key === "z" && !e.shiftKey) {
         e.preventDefault();
-        undo();
+        s.undo();
         return;
       }
 
       if ((ctrl && key === "y") || (ctrl && e.shiftKey && key === "z")) {
         e.preventDefault();
-        redo();
+        s.redo();
         return;
       }
 
       if (key === "arrowleft") {
         e.preventDefault();
         const step = e.shiftKey ? 1 : frameStep;
-        setPlayhead(Math.max(0, playhead - step));
+        s.setPlayhead(Math.max(0, s.project.playhead - step));
         return;
       }
 
       if (key === "arrowright") {
         e.preventDefault();
         const step = e.shiftKey ? 1 : frameStep;
-        setPlayhead(Math.min(duration, playhead + step));
+        s.setPlayhead(Math.min(s.project.duration, s.project.playhead + step));
         return;
       }
 
       if (key === "home") {
         e.preventDefault();
-        setPlayhead(0);
+        s.setPlayhead(0);
         return;
       }
 
       if (key === "end") {
         e.preventDefault();
-        setPlayhead(duration);
+        s.setPlayhead(s.project.duration);
         return;
       }
 
       if ((key === "=" || key === "+") && ctrl) {
         e.preventDefault();
-        setTimelineZoom(zoom + 0.25);
+        s.setTimelineZoom(s.project.zoom + 0.25);
         return;
       }
 
       if (key === "-" && ctrl) {
         e.preventDefault();
-        setTimelineZoom(zoom - 0.25);
+        s.setTimelineZoom(s.project.zoom - 0.25);
         return;
       }
 
       if (key === "j") {
         e.preventDefault();
-        setPlayhead(Math.max(0, playhead - 2));
-        setIsPlaying(false);
+        s.setPlayhead(Math.max(0, s.project.playhead - 2));
+        s.setIsPlaying(false);
         return;
       }
 
       if (key === "k") {
         e.preventDefault();
-        setIsPlaying(false);
+        s.setIsPlaying(false);
         return;
       }
 
       if (key === "l") {
         e.preventDefault();
-        setPlayhead(Math.min(duration, playhead + 2));
-        setIsPlaying(true);
+        s.setPlayhead(Math.min(s.project.duration, s.project.playhead + 2));
+        s.setIsPlaying(true);
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [
-    isPlaying,
-    setIsPlaying,
-    playhead,
-    duration,
-    fps,
-    selectedClipId,
-    removeClip,
-    splitClipAtPlayhead,
-    setPlayhead,
-    setTimelineZoom,
-    zoom,
-    undo,
-    redo,
-    toggleSnap,
-    setSelectedClip,
-    saveProject,
-  ]);
+  }, []);
 }

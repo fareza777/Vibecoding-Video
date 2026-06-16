@@ -127,8 +127,12 @@ export function MediaPanel() {
 
   const addToTimeline = useCallback(
     (asset: MediaAsset) => {
-      if (clips.some((c) => c.assetId === asset.id)) return;
+      if (clips.some((c) => c.assetId === asset.id)) {
+        setPanelHint(`"${asset.name}" sudah ada di timeline`);
+        return;
+      }
       addClip(buildTimelineClip(asset, playhead), true);
+      setPanelHint(`"${asset.name}" ditambahkan ke timeline`);
     },
     [addClip, clips, playhead]
   );
@@ -151,6 +155,12 @@ export function MediaPanel() {
       setSelectedAssetId(assets[0].id);
     }
   }, [assets, selectedAssetId]);
+
+  useEffect(() => {
+    if (!panelHint) return;
+    const t = window.setTimeout(() => setPanelHint(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [panelHint]);
 
   const filteredAssets = assets.filter((a) =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase())

@@ -234,7 +234,16 @@ export function saveAutosave(
   if (typeof window === "undefined") return;
   const file = createProjectFile(project, exportSettings);
   localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(file));
+  try {
+    localStorage.setItem(autosaveKey(project.id), JSON.stringify(file));
+  } catch {
+    // quota or private mode: ignore
+  }
   upsertRecentProject(project);
+}
+
+function autosaveKey(projectId: string): string {
+  return `${AUTOSAVE_KEY}::${projectId}`;
 }
 
 export async function loadAutosave(): Promise<{
@@ -289,6 +298,23 @@ function upsertRecentProject(project: EditorProject): void {
 export async function loadRecentProject(
   id: string
 ): Promise<{ project: EditorProject; exportSettings?: ExportSettings } | null> {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(autosaveKey(id));
+  if (raw) {
+    try {
+      const parsed = projectFileSchema.parse(JSON.parse(raw));
+      const project: EditorProject = {
+        ...parsed.project,
+        assets: parsed.project.assets.map((a) => ({ ...a, url: "" })),
+        clips: parsed.project.clips as TimelineClip[],
+        tracks: parsed.project.tracks as TimelineTrack[],
+      };
+      const { project: hydrated } = await rehydrateProjectAssets(project);
+      return { project: hydrated, exportSettings: parsed.exportSettings };
+    } catch {
+      return null;
+    }
+  }
   const autosave = await loadAutosave();
   if (!autosave || autosave.project.id !== id) return null;
   return autosave;

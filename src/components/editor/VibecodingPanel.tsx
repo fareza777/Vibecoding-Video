@@ -56,12 +56,13 @@ export function VibecodingPanel({ onOpenSettings }: VibecodingPanelProps) {
   const selectedClipId = useEditorStore((s) => s.selectedClipId);
 
   useEffect(() => {
-    setAiSettings(loadAiSettings());
+    const settings = loadAiSettings();
+    setAiSettings(settings);
     fetch("/api/vibecoding/status")
       .then((r) => r.json())
-      .then((d) => setAiConnected(d.hasServerKey || aiSettings.apiKey.length > 10))
-      .catch(() => setAiConnected(aiSettings.apiKey.length > 10));
-  }, [aiSettings.apiKey]);
+      .then((d) => setAiConnected(Boolean(d.hasServerKey) || settings.apiKey.length > 10))
+      .catch(() => setAiConnected(settings.apiKey.length > 10));
+  }, []);
 
   useEffect(() => {
     const handler = () => {

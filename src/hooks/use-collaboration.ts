@@ -27,6 +27,21 @@ export function useCollaboration() {
   const updatedAtRef = useRef(project.updatedAt);
   updatedAtRef.current = project.updatedAt;
 
+  const [settingsVersion, setSettingsVersion] = useState(0);
+
+  useEffect(() => {
+    const onSettingsChanged = () => setSettingsVersion((v) => v + 1);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "vibecoding-cloud-settings") onSettingsChanged();
+    };
+    window.addEventListener("vibecoding:cloud-settings-changed", onSettingsChanged);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("vibecoding:cloud-settings-changed", onSettingsChanged);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
   useEffect(() => {
     const settings = loadCloudSettings();
     const active = isCloudConfigured(settings);
@@ -35,7 +50,16 @@ export function useCollaboration() {
     if (!active) {
       setCollaborators([]);
       setRemoteUpdatedAt(null);
+      if (channelRef.current) {
+        unsubscribeCollaboration(channelRef.current);
+        channelRef.current = null;
+      }
       return;
+    }
+
+    if (channelRef.current) {
+      unsubscribeCollaboration(channelRef.current);
+      channelRef.current = null;
     }
 
     const channel = createCollaborationChannel(settings, project.id);
@@ -57,7 +81,7 @@ export function useCollaboration() {
       unsubscribeCollaboration(channel);
       channelRef.current = null;
     };
-  }, [project.id]);
+  }, [project.id, settingsVersion]);
 
   const broadcastUpdate = useCallback(async () => {
     const channel = channelRef.current;
